@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python main.py:*)",
+      "Bash(pip install:*)",
+      "Bash(tee:*)",
+      "Bash(python:*)",
+      "Bash(test:*)",
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)",
+      "Bash(git init:*)"
+    ]
+  }
+}

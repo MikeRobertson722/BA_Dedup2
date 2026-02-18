@@ -1,0 +1,58 @@
+{
+  "name": "ba_dedup_hybrid_workflow",
+  "description": "BA deduplication using hybrid fuzzy + AI matching for optimal accuracy",
+  "version": "1.0",
+  "steps": [
+    {
+      "name": "ingestion",
+      "agent": "ingestion",
+      "description": "Load Business Associate records from source",
+      "config": {
+        "source_type": "csv",
+        "source_path": "input/sample_data.csv"
+      },
+      "required": true
+    },
+    {
+      "name": "validation",
+      "agent": "validation",
+      "description": "Validate and standardize record formats",
+      "config": {},
+      "required": true
+    },
+    {
+      "name": "hybrid_matching",
+      "agent": "hybrid_matching",
+      "description": "Find duplicates using fuzzy matching + AI for uncertain cases",
+      "config": {
+        "fuzzy_threshold_high": 0.95,
+        "fuzzy_threshold_low": 0.75,
+        "ai_threshold": 0.80,
+        "ai_enabled": true,
+        "use_ai_for_uncertain": true,
+        "blocking_fields": ["state"]
+      },
+      "required": true
+    },
+    {
+      "name": "merge",
+      "agent": "merge",
+      "description": "Merge duplicate records into golden records",
+      "config": {
+        "merge_strategy": "most_complete"
+      },
+      "required": true
+    },
+    {
+      "name": "output",
+      "agent": "output",
+      "description": "Write deduplicated records to destination",
+      "config": {
+        "output_type": "database",
+        "output_table": "business_associates_hybrid_deduplicated",
+        "write_audit": true
+      },
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "start_time": "2026-02-17T21:29:56.899191",
+  "end_time": "2026-02-17T21:30:31.870478",
+  "total_duration": 34.971287,
+  "operations": [
+    {
+      "name": "1. Generate Test Data",
+      "duration": 10.682737827301025,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:07.583492"
+    },
+    {
+      "name": "2. Ingestion Agent",
+      "duration": 0.02426314353942871,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:08.022784"
+    },
+    {
+      "name": "3. Validation Agent",
+      "duration": 0.4107670783996582,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:08.433608"
+    },
+    {
+      "name": "4. Matching Agent",
+      "duration": 19.161669492721558,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:27.595340"
+    },
+    {
+      "name": "5. Merge Agent",
+      "duration": 4.057048082351685,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:31.652448"
+    },
+    {
+      "name": "6. Output Agent",
+      "duration": 0.21673107147216797,
+      "memory_delta_mb": 0,
+      "timestamp": "2026-02-17T21:30:31.869253"
+    }
+  ],
+  "memory": {
+    "start_mb": 277.91796875,
+    "end_mb": 388.17578125,
+    "peak_mb": 69.52932453155518,
+    "delta_mb": 110.2578125
+  },
+  "database": {
+    "total_queries": 0,
+    "slow_queries": []
+  },
+  "records": {
+    "input_count": 100000,
+    "output_count": 9068,
+    "duplicates_removed": 90932
+  }
+}

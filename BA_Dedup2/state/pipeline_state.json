@@ -1,0 +1,60 @@
+{
+  "pipeline_id": "ba_dedup_pipeline",
+  "started_at": "2026-02-17T16:42:10.999543",
+  "updated_at": "2026-02-17T16:42:11.170739",
+  "completed_at": "2026-02-17T16:42:11.170734",
+  "status": "completed",
+  "current_step": null,
+  "completed_steps": [
+    "ingestion",
+    "validation",
+    "matching",
+    "merge",
+    "output"
+  ],
+  "failed_steps": [],
+  "step_results": {
+    "ingestion": {
+      "status": "completed",
+      "started_at": "2026-02-17T16:42:11.000458",
+      "completed_at": "2026-02-17T16:42:11.006997",
+      "record_count": 38,
+      "error": null,
+      "metadata": {}
+    },
+    "validation": {
+      "status": "completed",
+      "started_at": "2026-02-17T16:42:11.007597",
+      "completed_at": "2026-02-17T16:42:11.020191",
+      "record_count": 38,
+      "error": null,
+      "metadata": {}
+    },
+    "matching": {
+      "status": "completed",
+      "started_at": "2026-02-17T16:42:11.020966",
+      "completed_at": "2026-02-17T16:42:11.040041",
+      "record_count": 38,
+      "error": null,
+      "metadata": {}
+    },
+    "merge": {
+      "status": "completed",
+      "started_at": "2026-02-17T16:42:11.040573",
+      "completed_at": "2026-02-17T16:42:11.061923",
+      "record_count": 24,
+      "error": null,
+      "metadata": {}
+    },
+    "output": {
+      "status": "completed",
+      "started_at": "2026-02-17T16:42:11.062510",
+      "completed_at": "2026-02-17T16:42:11.170138",
+      "record_count": 24,
+      "error": null,
+      "metadata": {}
+    }
+  },
+  "errors": [],
+  "metadata": {}
+}

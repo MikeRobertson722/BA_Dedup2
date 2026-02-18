@@ -1,0 +1,52 @@
+{
+  "name": "ba_dedup_pipeline",
+  "version": "1.0",
+  "description": "Business Associate deduplication pipeline using fuzzy matching",
+  "steps": [
+    {
+      "name": "ingestion",
+      "agent": "ingestion",
+      "description": "Read BA records from source (file or database)",
+      "config": {},
+      "retry_on_failure": true,
+      "max_retries": 3
+    },
+    {
+      "name": "validation",
+      "agent": "validation",
+      "description": "Validate and standardize BA records",
+      "config": {
+        "drop_invalid": false
+      },
+      "retry_on_failure": false
+    },
+    {
+      "name": "matching",
+      "agent": "matching",
+      "description": "Identify duplicate/similar records using fuzzy matching",
+      "config": {},
+      "retry_on_failure": false
+    },
+    {
+      "name": "merge",
+      "agent": "merge",
+      "description": "Merge duplicate records into golden records",
+      "config": {},
+      "retry_on_failure": false
+    },
+    {
+      "name": "output",
+      "agent": "output",
+      "description": "Write deduplicated records to destination",
+      "config": {
+        "write_audit": true
+      },
+      "retry_on_failure": true,
+      "max_retries": 3
+    }
+  ],
+  "error_handling": {
+    "on_failure": "stop",
+    "save_state": true
+  }
+}
