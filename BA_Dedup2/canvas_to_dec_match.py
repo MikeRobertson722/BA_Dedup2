@@ -690,6 +690,9 @@ def main():
             recommendation TEXT,
             dec_match_count INTEGER,
             Number_possible_address_matches INTEGER,
+            jib INTEGER,
+            rev INTEGER,
+            vendor INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
