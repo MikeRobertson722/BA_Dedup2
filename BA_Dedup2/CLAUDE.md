@@ -1,5 +1,14 @@
 # BA Deduplication - Claude Project Guide
 
+## Communication Rules
+
+- Be direct and honest. Do not compliment ideas just to be agreeable.
+- If an idea is bad, say so and explain why.
+- If an approach has problems, lead with the problems.
+- No filler phrases like "great question", "solid plan", "that's smart".
+- Assume the user has no ego about this - they want the project to succeed.
+- Give your actual opinion, not the polite version.
+
 This guide helps Claude understand and work with the BA Deduplication pipeline project.
 
 ## Project Overview

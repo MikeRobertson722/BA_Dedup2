@@ -1,12 +1,15 @@
 
---- Approach must be 
+--- Approach once python code has been trained by human and we are able to build a loop for it to test itself.
 1. Identify WHERE we can skip NO need TO run through process
 2. Can it be solved WITH python code (mostly 95% TO 100% match)
-3. Finaly use AI TO resolve (this may be somewhat costly $.5 TO $2 per 100 records IS what it estimated, but need TO verify )
+3. Finaly use AI TO resolve (this may be somewhat costly $.5 TO $2 per 100 records IS what it estimated, *** but need TO verify **)
 4. THEN AT SOME point, possibly a once AFTER python run, AND again AFTER AI run have a manual process ok updates.
 5. ALWAYS have an undo AFTER ANY run OR manual intervention
-6. ALWAYS protect PII (ssn/tin, bank ACCOUNT numbers, etc.). 
+6. **** ALWAYS protect PII (ssn/tin, bank ACCOUNT numbers, etc.). Never use simple hashing since SSN and Bank accounts now days can be reverse engineered quickly.
 7. FOR AI resolving CHECK FOR vulnerablilities. 
+
+**** We can Get a valid normalized address from USPS for free, but it does limit througput 
+
 
 
 select  a.*, b.SSN, REGEXP_REPLACE(B.ssn, '[^0-9]', '')
@@ -30,7 +33,7 @@ AND REGEXP_REPLACE(B.ssn, '[^0-9]', '') IN ('000000000','111111111','222222222',
 
 -- Always keep changes made by the program in a log and make sure there is a process that can be run to revert back to other times that the process has run, kinda an undo.
 
--- Use this for SSN or any other PII : TO_VARCHAR(SHA2(ssn_norm || '|SOME_SECRET_SALT_VALUE', 256), 'HEX') AS ssn_token_hex
+-- Use this for SSN, bank account (if we use this as an identifier) or any other PII : TO_VARCHAR(SHA2(ssn_norm || '|SOME_SECRET_SALT_VALUE', 256), 'HEX') AS ssn_token_hex
 
 -- Need a hard list of exceptions like Trusts, Departments (I think Steve at one time wanted a different BA if the department in the name field was different.  Other companies may differ)
 
@@ -52,7 +55,7 @@ AND REGEXP_REPLACE(B.ssn, '[^0-9]', '') IN ('000000000','111111111','222222222',
 --		Version Tracking Table - Tracks each run with metadata
 --		Backup Manager - Automated backup before each run
 --		Restore Script - Easy rollback to any previous state
---		Modified Dedup Scripts - Auto-backup integration
+--		Modified Dedupe Scripts - Auto-backup integration
 
 -- Above it is using a backup and restore, but would like for it to 
 

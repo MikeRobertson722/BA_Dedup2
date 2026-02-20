@@ -8,7 +8,9 @@
       "Bash(test:*)",
       "Bash(sqlite3:*)",
       "Bash(ls:*)",
-      "Bash(git init:*)"
+      "Bash(git init:*)",
+      "Bash(wc:*)",
+      "Bash(code --install-extension:*)"
     ]
   }
 }
