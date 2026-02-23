@@ -1,0 +1,319 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1520 920" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#666"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#9673a6"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#b85450"/>
+    </marker>
+    <marker id="arrow-gold" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#d6b656"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#82b366"/>
+    </marker>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#6c8ebf"/>
+    </marker>
+    <marker id="arrow-orange" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#e67e22"/>
+    </marker>
+  </defs>
+
+  <rect width="1520" height="920" fill="#fafafa" rx="8"/>
+  <text x="760" y="30" text-anchor="middle" font-size="22" font-weight="bold" fill="#333">BA Dedup2 — Name &amp; Address Scoring</text>
+
+  <!-- ================================================================ -->
+  <!-- ROW 1: NAME SCORING                                              -->
+  <!-- ================================================================ -->
+
+  <!-- normalize_name() -->
+  <rect x="30" y="50" width="330" height="330" rx="8" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.5"/>
+  <rect x="30" y="50" width="330" height="24" rx="8" fill="#b8d4f0" stroke="#6c8ebf" stroke-width="1.5"/>
+  <text x="195" y="67" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">normalize_name()</text>
+
+  <rect x="45" y="82" width="300" height="26" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="100" text-anchor="middle" font-size="10" fill="#333">Replace / &amp; → space, strip special chars</text>
+
+  <rect x="45" y="114" width="300" height="26" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="132" text-anchor="middle" font-size="10" fill="#333">UPPERCASE, collapse whitespace</text>
+
+  <rect x="45" y="146" width="300" height="96" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="162" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Suffix Map Replacements</text>
+  <text x="55" y="177" font-size="9" fill="#555">FEDERAL EXPRESS → FEDEX</text>
+  <text x="55" y="189" font-size="9" fill="#555">NEW YORK → NEWYORK (multi-word states)</text>
+  <text x="55" y="201" font-size="9" fill="#555">LIV TR → LIVING TRUST, REV → REVOCABLE</text>
+  <text x="55" y="213" font-size="9" fill="#555">CORPORATION → CORP, L L C → LLC</text>
+  <text x="55" y="225" font-size="9" fill="#555">JUNIOR → JR, SENIOR → SR</text>
+  <text x="55" y="237" font-size="9" fill="#555">PDIII → PD III (split Roman numerals)</text>
+
+  <rect x="45" y="248" width="300" height="26" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="266" text-anchor="middle" font-size="10" fill="#333">Collapse single letters: J V S → JVS</text>
+
+  <rect x="45" y="282" width="300" height="88" rx="4" fill="#E3F2FD" stroke="#6c8ebf"/>
+  <text x="195" y="298" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">canonicalize_token()</text>
+  <text x="55" y="313" font-size="9" fill="#555">NICKNAMES: JIMMY→JAMES, BOB→ROBERT</text>
+  <text x="55" y="325" font-size="9" fill="#555">  JIMMIE→JAMES, BILL→WILLIAM… (90+)</text>
+  <text x="55" y="339" font-size="9" fill="#555">NUMBER_WORDS: ONE→1, TWO→2…</text>
+  <text x="55" y="353" font-size="9" fill="#555">STATE_ABBREVS: TX→TEXAS, OK→OKLAHOMA…</text>
+  <text x="55" y="365" font-size="8" fill="#999">  (skip IN, CO — ambiguous with common words)</text>
+
+  <!-- Arrow: normalize → compare -->
+  <line x1="360" y1="215" x2="405" y2="215" stroke="#9673a6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+
+  <!-- name_compare() -->
+  <rect x="410" y="50" width="420" height="330" rx="8" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.5"/>
+  <rect x="410" y="50" width="420" height="24" rx="8" fill="#d4c4e0" stroke="#9673a6" stroke-width="1.5"/>
+  <text x="620" y="67" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">name_compare()</text>
+
+  <!-- Decision cascade -->
+  <rect x="425" y="82" width="195" height="26" rx="4" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="522" y="100" text-anchor="middle" font-size="10" fill="#333">Normalized strings equal?</text>
+  <rect x="640" y="82" width="80" height="26" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="680" y="100" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">= 100</text>
+  <line x1="620" y1="95" x2="636" y2="95" stroke="#82b366" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+  <text x="628" y="89" font-size="7" fill="#82b366">YES</text>
+
+  <rect x="425" y="114" width="390" height="50" rx="4" fill="#e1d5e7" stroke="#9673a6"/>
+  <text x="620" y="130" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Tokenize &amp; Clean</text>
+  <text x="435" y="144" font-size="8.5" fill="#555">Strip NAME_SUFFIXES (JR,SR,II…) → Acronym check (CSC=Corp Service Co → 95)</text>
+  <text x="435" y="156" font-size="8.5" fill="#555">Strip BUSINESS_SUFFIXES (LLC,INC…) + DESCRIPTORS + AND → canonicalize</text>
+
+  <rect x="425" y="170" width="195" height="26" rx="4" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="522" y="188" text-anchor="middle" font-size="10" fill="#333">Cleaned tokens equal?</text>
+  <rect x="640" y="170" width="80" height="26" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="680" y="188" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">= 100</text>
+  <line x1="620" y1="183" x2="636" y2="183" stroke="#82b366" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <rect x="425" y="202" width="195" height="34" rx="4" fill="#fff2cc" stroke="#d6b656"/>
+  <text x="522" y="217" text-anchor="middle" font-size="9.5" fill="#333">Initial match?</text>
+  <text x="522" y="229" text-anchor="middle" font-size="8" fill="#888">J SMITH = JOHN SMITH</text>
+  <rect x="640" y="206" width="80" height="26" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="680" y="224" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">= 95</text>
+  <line x1="620" y1="219" x2="636" y2="219" stroke="#82b366" stroke-width="1.5" marker-end="url(#arrow-green)"/>
+
+  <!-- Multi-strategy -->
+  <rect x="425" y="242" width="390" height="50" rx="4" fill="#e1d5e7" stroke="#9673a6"/>
+  <text x="620" y="258" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Multi-Strategy Jaro-Winkler</text>
+  <text x="435" y="272" font-size="8.5" fill="#555">Direct JW  |  Sorted-tokens JW  |  Compact-alnum JW  →  best_jw = max(all three)</text>
+  <text x="435" y="284" font-size="8.5" fill="#555">If compact_jw ≥ 0.95 → floor at compact_jw (handles compound words)</text>
+
+  <!-- Token overlap -->
+  <rect x="425" y="298" width="390" height="72" rx="4" fill="#e1d5e7" stroke="#9673a6"/>
+  <text x="620" y="314" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Token Overlap + Bookend Bonus</text>
+  <text x="435" y="329" font-size="8.5" fill="#555">enhanced_token_overlap: exact → initial (J↔JOHN) → fuzzy (JW&gt;0.88)</text>
+  <text x="435" y="341" font-size="8.5" fill="#555">Bookend bonus: first+last tokens match (exact/initial/JW≥0.85) → coeff ≥ 0.90</text>
+  <text x="435" y="356" font-size="9" font-weight="bold" fill="#4a148c">score = best_jw × (0.3 + 0.7 × overlap_coeff)    →  round to nearest 5</text>
+
+  <!-- Arrow: compare → Name Score -->
+  <line x1="830" y1="215" x2="875" y2="215" stroke="#9673a6" stroke-width="2" marker-end="url(#arrow-purple)"/>
+
+  <!-- NAME OUTPUT -->
+  <rect x="880" y="120" width="150" height="110" rx="8" fill="#f5f5f5" stroke="#666" stroke-width="1.5"/>
+  <rect x="880" y="120" width="150" height="24" rx="8" fill="#e8e8e8" stroke="#666" stroke-width="1.5"/>
+  <text x="955" y="137" text-anchor="middle" font-size="11" font-weight="bold" fill="#333">Name Score</text>
+  <text x="955" y="162" text-anchor="middle" font-size="10" fill="#555">0 – 100</text>
+  <text x="955" y="177" text-anchor="middle" font-size="9" fill="#888">rounded to nearest 5</text>
+  <text x="955" y="197" text-anchor="middle" font-size="9" fill="#888">match ≥ 85</text>
+  <text x="955" y="212" text-anchor="middle" font-size="9" fill="#e67e22">ambiguous 15–50</text>
+  <text x="955" y="224" text-anchor="middle" font-size="8" fill="#999">mismatch &lt; 45</text>
+
+  <!-- Arrow: Name Score → API Override -->
+  <line x1="955" y1="230" x2="955" y2="248" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <text x="970" y="244" font-size="7" fill="#e67e22">if 15–50</text>
+
+  <!-- ================================================================ -->
+  <!-- API OVERRIDE BLOCK                                               -->
+  <!-- ================================================================ -->
+  <rect x="870" y="252" width="170" height="130" rx="8" fill="#FFF3E0" stroke="#e67e22" stroke-width="1.5"/>
+  <rect x="870" y="252" width="170" height="24" rx="8" fill="#FFE0B2" stroke="#e67e22" stroke-width="1.5"/>
+  <text x="955" y="269" text-anchor="middle" font-size="11" font-weight="bold" fill="#e65100">API Override</text>
+
+  <text x="880" y="292" font-size="9" fill="#555">Claude Sonnet 4.5</text>
+  <text x="880" y="306" font-size="9" fill="#555">Batches of 20 pairs</text>
+  <text x="880" y="324" font-size="8.5" fill="#555">Prompt: "Do these</text>
+  <text x="880" y="336" font-size="8.5" fill="#555">business names refer</text>
+  <text x="880" y="348" font-size="8.5" fill="#555">to the same entity?"</text>
+  <text x="880" y="366" font-size="9" font-weight="bold" fill="#e65100">Returns 0–100 score</text>
+  <text x="880" y="378" font-size="8" fill="#999">~621 pairs, ~$0.26/run</text>
+
+  <!-- Arrow: API Override → reclassify -->
+  <line x1="955" y1="382" x2="955" y2="398" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow-orange)"/>
+
+  <!-- Reclassify box -->
+  <rect x="880" y="400" width="156" height="36" rx="4" fill="#FFF3E0" stroke="#e67e22"/>
+  <text x="958" y="416" text-anchor="middle" font-size="9" font-weight="bold" fill="#e65100">Override name_score</text>
+  <text x="958" y="429" text-anchor="middle" font-size="8" fill="#555">→ reclassify recommendation</text>
+
+  <!-- ================================================================ -->
+  <!-- ROW 2: ADDRESS SCORING                                           -->
+  <!-- ================================================================ -->
+
+  <!-- normalize_address() -->
+  <rect x="30" y="450" width="330" height="290" rx="8" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.5"/>
+  <rect x="30" y="450" width="330" height="24" rx="8" fill="#b8d4f0" stroke="#6c8ebf" stroke-width="1.5"/>
+  <text x="195" y="467" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">normalize_address()</text>
+
+  <rect x="45" y="482" width="300" height="52" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="498" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Strip Dates from Address</text>
+  <text x="55" y="513" font-size="9" fill="#555">Remove "DATED" prefix keyword</text>
+  <text x="55" y="525" font-size="9" fill="#555">Strip month-name dates: JUNE 14, 2012 / MAR 2012</text>
+
+  <rect x="45" y="540" width="300" height="52" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="556" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">PO Box Canonicalization</text>
+  <text x="55" y="571" font-size="9" fill="#555">POST OFFICE BOX / P.O. BOX / POB → PO BOX</text>
+  <text x="55" y="583" font-size="9" fill="#555">PO BOX ONE → PO BOX 1  |  COUNTY ROAD → CR</text>
+
+  <rect x="45" y="598" width="300" height="40" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="614" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Direction &amp; Street Abbreviation</text>
+  <text x="55" y="629" font-size="9" fill="#555">NORTHEAST→NE  |  STREET→ST  |  AVENUE→AVE…</text>
+
+  <rect x="45" y="644" width="300" height="26" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="662" text-anchor="middle" font-size="10" fill="#333">APARTMENT→APT, SUITE→STE, #123→APT 123</text>
+
+  <rect x="45" y="676" width="300" height="54" rx="4" fill="#dae8fc" stroke="#6c8ebf"/>
+  <text x="195" y="692" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Helpers</text>
+  <text x="55" y="707" font-size="9" fill="#555">normalize_city: FT→FORT  |  normalize_zip: pad to 5</text>
+  <text x="55" y="719" font-size="9" fill="#555">parse_house_number, parse_po_box_number</text>
+
+  <!-- Arrow: normalize → compare -->
+  <line x1="360" y1="595" x2="405" y2="595" stroke="#6c8ebf" stroke-width="2" marker-end="url(#arrow-blue)"/>
+
+  <!-- address_compare() -->
+  <rect x="410" y="450" width="420" height="290" rx="8" fill="#d5e8d4" stroke="#82b366" stroke-width="1.5"/>
+  <rect x="410" y="450" width="420" height="24" rx="8" fill="#c5dbb4" stroke="#82b366" stroke-width="1.5"/>
+  <text x="620" y="467" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">address_compare()</text>
+
+  <!-- PO Box path -->
+  <rect x="425" y="482" width="185" height="110" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="517" y="498" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">PO Box Path</text>
+  <text x="435" y="515" font-size="8.5" fill="#555">1. Both PO Box? (else score=0)</text>
+  <text x="435" y="529" font-size="8.5" fill="#555">2. Box numbers match? (else 0)</text>
+  <text x="435" y="543" font-size="8.5" fill="#555">3. Compare cities (JW+compact)</text>
+  <text x="435" y="561" font-size="8.5" font-weight="bold" fill="#333">score = 0.92 × city_sim</text>
+  <text x="435" y="573" font-size="8.5" fill="#555">  + 0.05 zip  |  same if ≥0.90</text>
+
+  <!-- Street path -->
+  <rect x="625" y="482" width="190" height="110" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="720" y="498" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Street Path</text>
+  <text x="635" y="515" font-size="8.5" fill="#555">1. House numbers match? (else 0)</text>
+  <text x="635" y="529" font-size="8.5" fill="#555">2. street_core_for_match()</text>
+  <text x="635" y="547" font-size="8.5" font-weight="bold" fill="#333">score = street_sim ×</text>
+  <text x="635" y="559" font-size="8.5" font-weight="bold" fill="#333">  (0.6 + 0.4 × city_sim)</text>
+  <text x="635" y="575" font-size="8" fill="#999">+0.05 zip match, ×0.75 zip fail</text>
+
+  <!-- Non-standard path -->
+  <rect x="425" y="600" width="390" height="52" rx="4" fill="#d5e8d4" stroke="#82b366"/>
+  <text x="620" y="616" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">Non-Standard Path (military: CMR/PSC/UNIT, no house #)</text>
+  <text x="435" y="631" font-size="8.5" fill="#555">Full address JW × (0.6 + 0.4 × city_sim)  |  Penalties: nums −0.10, zip −0.20</text>
+  <text x="435" y="643" font-size="8.5" fill="#555">Bonus: all nums+zip match +0.50</text>
+
+  <!-- Date filtering for numbers -->
+  <rect x="425" y="660" width="390" height="36" rx="4" fill="#d5e8d4" stroke="#82b366" stroke-width="1.2"/>
+  <text x="620" y="676" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">extract_addr_numbers() — Date Filtering</text>
+  <text x="435" y="691" font-size="8.5" fill="#555">Strip all date patterns (JUNE 14 2012, 6-27-2022, 1999, 01/2020) before extracting nums</text>
+
+  <!-- Similarity note -->
+  <rect x="425" y="704" width="390" height="26" rx="4" fill="#d5e8d4" stroke="#82b366" stroke-width="1.2"/>
+  <text x="620" y="722" text-anchor="middle" font-size="9" fill="#555">All similarity: max( JW(normalized), JW(compact_alnum) )  →  round to nearest 5</text>
+
+  <!-- Arrow: compare → output -->
+  <line x1="830" y1="595" x2="875" y2="595" stroke="#82b366" stroke-width="2" marker-end="url(#arrow-green)"/>
+
+  <!-- ADDRESS OUTPUT -->
+  <rect x="880" y="460" width="150" height="130" rx="8" fill="#f5f5f5" stroke="#666" stroke-width="1.5"/>
+  <rect x="880" y="460" width="150" height="24" rx="8" fill="#e8e8e8" stroke="#666" stroke-width="1.5"/>
+  <text x="955" y="477" text-anchor="middle" font-size="11" font-weight="bold" fill="#333">Address Score</text>
+  <text x="955" y="502" text-anchor="middle" font-size="10" fill="#555">0 – 100</text>
+  <text x="955" y="517" text-anchor="middle" font-size="9" fill="#888">rounded to nearest 5</text>
+  <text x="955" y="540" text-anchor="middle" font-size="9" fill="#888">same_address flag</text>
+  <text x="955" y="554" text-anchor="middle" font-size="8" fill="#999">(boolean per path)</text>
+  <text x="955" y="578" text-anchor="middle" font-size="9" fill="#888">≥75 = likely same</text>
+
+  <!-- ================================================================ -->
+  <!-- FINAL CLASSIFICATION                                             -->
+  <!-- ================================================================ -->
+
+  <!-- Arrows from name+address+api → classification -->
+  <polyline points="1036,418 1060,418 1060,95 1065,95" fill="none" stroke="#e67e22" stroke-width="2" marker-end="url(#arrow-orange)"/>
+  <text x="1048" y="250" font-size="8" fill="#e67e22" transform="rotate(-90,1048,250)">name_score (overridden)</text>
+
+  <polyline points="955,590 955,610 1050,610 1050,130 1065,130" fill="none" stroke="#82b366" stroke-width="2" marker-end="url(#arrow-green)"/>
+  <text x="1000" y="605" font-size="9" fill="#82b366" font-weight="bold">address_score</text>
+
+  <!-- Classification header -->
+  <rect x="1070" y="50" width="420" height="24" rx="8" fill="#e8e8e8" stroke="#666" stroke-width="1.5"/>
+  <text x="1280" y="67" text-anchor="middle" font-size="12" font-weight="bold" fill="#333">Final Classification</text>
+
+  <rect x="1070" y="82" width="420" height="28" rx="4" fill="#E0E0E0" stroke="#666"/>
+  <text x="1280" y="101" text-anchor="middle" font-size="10" font-weight="bold" fill="#333">avg = ( name_score + address_score ) / 2</text>
+
+  <rect x="1070" y="120" width="420" height="54" rx="6" fill="#f8cecc" stroke="#b85450" stroke-width="1.2"/>
+  <text x="1280" y="138" text-anchor="middle" font-size="10" font-weight="bold" fill="#b85450">LIKELY BA MATCH — SSN MATCH NAME MISMATCH</text>
+  <text x="1280" y="153" text-anchor="middle" font-size="9" fill="#555">avg &lt; 40 AND (name_score &lt; 45 OR addr_score &gt; 30)</text>
+  <text x="1280" y="167" text-anchor="middle" font-size="8" fill="#888">SSN matched but name too different — needs review</text>
+
+  <rect x="1070" y="180" width="420" height="42" rx="6" fill="#fff2cc" stroke="#d6b656" stroke-width="1.2"/>
+  <text x="1280" y="198" text-anchor="middle" font-size="10" font-weight="bold" fill="#8a6d3b">EXISTING BA — NEW ADDRESS (name override)</text>
+  <text x="1280" y="213" text-anchor="middle" font-size="9" fill="#555">avg &lt; 40 BUT name_score ≥ 45 AND addr_score ≤ 30</text>
+
+  <rect x="1070" y="228" width="420" height="42" rx="6" fill="#d5e8d4" stroke="#82b366" stroke-width="1.2"/>
+  <text x="1280" y="246" text-anchor="middle" font-size="10" font-weight="bold" fill="#2e7d32">EXISTING BA — EXISTING ADDRESS</text>
+  <text x="1280" y="261" text-anchor="middle" font-size="9" fill="#555">same_address = True (from address_compare boolean)</text>
+
+  <rect x="1070" y="276" width="420" height="42" rx="6" fill="#dae8fc" stroke="#6c8ebf" stroke-width="1.2"/>
+  <text x="1280" y="294" text-anchor="middle" font-size="10" font-weight="bold" fill="#1565c0">EXISTING BA — LIKELY SAME ADDRESS</text>
+  <text x="1280" y="309" text-anchor="middle" font-size="9" fill="#555">addr_score ≥ 75 (close but not exact match)</text>
+
+  <rect x="1070" y="324" width="420" height="42" rx="6" fill="#e1d5e7" stroke="#9673a6" stroke-width="1.2"/>
+  <text x="1280" y="342" text-anchor="middle" font-size="10" font-weight="bold" fill="#6a1b9a">EXISTING BA — NEW ADDRESS</text>
+  <text x="1280" y="357" text-anchor="middle" font-size="9" fill="#555">SSN matched, avg ≥ 40, addr_score &lt; 75 (different address)</text>
+
+  <line x1="1070" y1="385" x2="1490" y2="385" stroke="#ccc" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="1280" y="400" text-anchor="middle" font-size="9" fill="#999">↑ SSN matched (EXISTING BA)  |  No SSN match (NEW BA) ↓</text>
+
+  <rect x="1070" y="410" width="200" height="34" rx="6" fill="#E0E0E0" stroke="#666" stroke-width="1"/>
+  <text x="1170" y="432" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#555">NEW BA — NO DEC MATCH</text>
+
+  <rect x="1290" y="410" width="200" height="34" rx="6" fill="#E0E0E0" stroke="#666" stroke-width="1"/>
+  <text x="1390" y="427" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#555">NEW BA — NO SSN /</text>
+  <text x="1390" y="439" text-anchor="middle" font-size="9.5" font-weight="bold" fill="#555">INVALID SSN</text>
+
+  <!-- ================================================================ -->
+  <!-- TRUST DETECTION                                                  -->
+  <!-- ================================================================ -->
+  <rect x="1070" y="470" width="420" height="120" rx="8" fill="#FEF0E0" stroke="#D4A880" stroke-width="1.5"/>
+  <rect x="1070" y="470" width="420" height="24" rx="8" fill="#F0C8B0" stroke="#D4A880" stroke-width="1.5"/>
+  <text x="1280" y="487" text-anchor="middle" font-size="12" font-weight="bold" fill="#8B5E3C">Trust Detection (is_trust flag)</text>
+
+  <text x="1085" y="510" font-size="9.5" font-weight="bold" fill="#333">Regex on Canvas name AND matched DEC name:</text>
+  <text x="1085" y="527" font-size="9" fill="#555">TRUST | TRUSTEE | TRUSTEES | TTEE | LIVING TRUST</text>
+  <text x="1085" y="541" font-size="9" fill="#555">FAMILY TRUST | REVOCABLE TRUST | IRREVOCABLE TRUST</text>
+  <text x="1085" y="555" font-size="9" fill="#555">TESTAMENTARY | ESTATE OF | DECEDENT</text>
+
+  <text x="1085" y="578" font-size="10" font-weight="bold" fill="#8B5E3C">is_trust = 1 if either name matches regex</text>
+
+  <!-- ================================================================ -->
+  <!-- BOTTOM: DECISION FLOW LEGEND                                     -->
+  <!-- ================================================================ -->
+  <rect x="30" y="775" width="1460" height="130" rx="8" fill="#f5f5f5" stroke="#666" stroke-width="1" stroke-dasharray="4,3"/>
+  <text x="760" y="795" text-anchor="middle" font-size="13" font-weight="bold" fill="#333">Decision Priority (checked top-to-bottom, first match wins)</text>
+
+  <text x="50" y="820" font-size="10" font-weight="bold" fill="#e67e22">1.</text>
+  <text x="68" y="820" font-size="10" fill="#e67e22">API Override: name_score 15–50 with SSN match → send to Claude Sonnet → override score → reclassify</text>
+
+  <text x="50" y="840" font-size="10" font-weight="bold" fill="#333">2.</text>
+  <text x="68" y="840" font-size="10" fill="#555">avg &lt; 40 → check name≥45 &amp; addr≤30 → either NAME MISMATCH or NEW ADDRESS (name override)</text>
+
+  <text x="50" y="858" font-size="10" font-weight="bold" fill="#333">3.</text>
+  <text x="68" y="858" font-size="10" fill="#555">same_address=True → EXISTING ADDRESS    |    4. addr_score ≥ 75 → LIKELY SAME ADDRESS</text>
+
+  <text x="50" y="876" font-size="10" font-weight="bold" fill="#333">5.</text>
+  <text x="68" y="876" font-size="10" fill="#555">else → NEW ADDRESS    |    No SSN / Invalid SSN / No DEC match → NEW BA categories</text>
+
+  <text x="760" y="900" font-size="9" fill="#999" text-anchor="middle">All scores rounded to nearest 5 before output  ·  Human review required — no auto-merge</text>
+
+</svg>

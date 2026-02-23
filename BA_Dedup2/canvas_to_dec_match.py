@@ -5,14 +5,33 @@ Scores BA match % (by SSN blocking) and Address match % separately.
 Outputs results to canvas_dec_matches table.
 """
 import re
+import json
+import os
 import pandas as pd
 import sqlite3
 import time
 from openpyxl.styles import PatternFill, Font, Alignment
 
+# Load .env file if present (no external dependency needed)
+_env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(_env_path):
+    with open(_env_path) as _f:
+        for _line in _f:
+            _line = _line.strip()
+            if _line and not _line.startswith('#') and '=' in _line:
+                _key, _val = _line.split('=', 1)
+                os.environ[_key.strip()] = _val.strip()
+
 # Paths
 DB_PATH = 'ba_dedup.db'
 CANVAS_FILE = 'input/CANVAS_BA_MASTER_.xlsx'
+
+# API override: send ambiguous name matches (score 15-50) to Claude for evaluation
+USE_API_OVERRIDE = False
+API_MODEL = 'claude-sonnet-4-5-20250929'
+API_SCORE_MIN = 15
+API_SCORE_MAX = 50
+API_BATCH_SIZE = 20
 
 # ===== String matching functions =====
 
@@ -97,7 +116,7 @@ NICKNAMES = {
     'CHUCK': 'CHARLES', 'CHARLIE': 'CHARLES', 'CHAS': 'CHARLES',
     'DICK': 'RICHARD', 'RICK': 'RICHARD', 'RICH': 'RICHARD', 'RICKY': 'RICHARD',
     'MIKE': 'MICHAEL', 'MIKEY': 'MICHAEL',
-    'JIM': 'JAMES', 'JIMMY': 'JAMES', 'JAMIE': 'JAMES',
+    'JIM': 'JAMES', 'JIMMY': 'JAMES', 'JIMMIE': 'JAMES', 'JAMIE': 'JAMES',
     'TOM': 'THOMAS', 'TOMMY': 'THOMAS',
     'JACK': 'JOHN', 'JOHNNY': 'JOHN', 'JON': 'JOHN',
     'JOE': 'JOSEPH', 'JOEY': 'JOSEPH',
@@ -185,13 +204,36 @@ NUMBER_WORDS = {
     'SIX': '6', 'SEVEN': '7', 'EIGHT': '8', 'NINE': '9', 'TEN': '10',
 }
 
+# State abbreviation → full name (map abbrev TO full so both forms match;
+# avoids conflict with CO in BUSINESS_SUFFIXES which strips before this runs)
+STATE_ABBREVS = {
+    'AL': 'ALABAMA', 'AK': 'ALASKA', 'AZ': 'ARIZONA', 'AR': 'ARKANSAS',
+    'CA': 'CALIFORNIA', 'CT': 'CONNECTICUT',
+    'DE': 'DELAWARE', 'FL': 'FLORIDA', 'GA': 'GEORGIA', 'HI': 'HAWAII',
+    'ID': 'IDAHO', 'IL': 'ILLINOIS', 'IA': 'IOWA',
+    'KS': 'KANSAS', 'KY': 'KENTUCKY', 'LA': 'LOUISIANA', 'ME': 'MAINE',
+    'MD': 'MARYLAND', 'MA': 'MASSACHUSETTS', 'MI': 'MICHIGAN',
+    'MN': 'MINNESOTA', 'MS': 'MISSISSIPPI', 'MO': 'MISSOURI',
+    'MT': 'MONTANA', 'NE': 'NEBRASKA', 'NV': 'NEVADA',
+    'NH': 'NEWHAMPSHIRE', 'NJ': 'NEWJERSEY', 'NM': 'NEWMEXICO',
+    'NY': 'NEWYORK', 'NC': 'NORTHCAROLINA', 'ND': 'NORTHDAKOTA',
+    'OH': 'OHIO', 'OK': 'OKLAHOMA', 'OR': 'OREGON', 'PA': 'PENNSYLVANIA',
+    'RI': 'RHODEISLAND', 'SC': 'SOUTHCAROLINA', 'SD': 'SOUTHDAKOTA',
+    'TN': 'TENNESSEE', 'TX': 'TEXAS', 'UT': 'UTAH', 'VT': 'VERMONT',
+    'VA': 'VIRGINIA', 'WA': 'WASHINGTON', 'WV': 'WESTVIRGINIA',
+    'WI': 'WISCONSIN', 'WY': 'WYOMING', 'DC': 'DISTRICTOFCOLUMBIA',
+    # Skip IN (Indiana) and CO (Colorado) — too ambiguous as common words/suffixes
+}
+
 
 def canonicalize_token(token):
-    """Normalize nicknames and number words to canonical form."""
+    """Normalize nicknames, number words, and state names to canonical form."""
     if token in NICKNAMES:
         return NICKNAMES[token]
     if token in NUMBER_WORDS:
         return NUMBER_WORDS[token]
+    if token in STATE_ABBREVS:
+        return STATE_ABBREVS[token]
     return token
 
 
@@ -264,6 +306,27 @@ def normalize_name(name, trust: bool = False) -> str:
     name = re.sub(r"[/&]", " ", name)
     name = re.sub(r"[^A-Za-z0-9\s]", "", name)
     suffix_map = {
+        # Business name aliases (multi-word first)
+        r"FEDERAL\s+EXPRESS": "FEDEX",
+        r"FEDEX\s+OFFICE": "FEDEX",
+        # Multi-word state names → single token (matches STATE_ABBREVS expansion)
+        r"NEW\s+HAMPSHIRE": "NEWHAMPSHIRE",
+        r"NEW\s+JERSEY": "NEWJERSEY",
+        r"NEW\s+MEXICO": "NEWMEXICO",
+        r"NEW\s+YORK": "NEWYORK",
+        r"NORTH\s+CAROLINA": "NORTHCAROLINA",
+        r"NORTH\s+DAKOTA": "NORTHDAKOTA",
+        r"SOUTH\s+CAROLINA": "SOUTHCAROLINA",
+        r"SOUTH\s+DAKOTA": "SOUTHDAKOTA",
+        r"WEST\s+VIRGINIA": "WESTVIRGINIA",
+        r"RHODE\s+ISLAND": "RHODEISLAND",
+        r"DISTRICT\s+OF\s+COLUMBIA": "DISTRICTOFCOLUMBIA",
+        # Trust abbreviation expansions (multi-word first)
+        r"LIV\s+TR": "LIVING TRUST",
+        "REVOC": "REVOCABLE",
+        "REV": "REVOCABLE",
+        "TR": "TRUST",
+        # Name suffixes
         "JUNIOR": "JR", "SENIOR": "SR",
         "THIRD": "III", "FOURTH": "IV", "SECOND": "II",
         "CORPORATION": "CORP", "INCORPORATED": "INC",
@@ -274,7 +337,28 @@ def normalize_name(name, trust: bool = False) -> str:
         name = re.sub(r"\b" + pat + r"\b", repl, name, flags=re.IGNORECASE)
     # Split concatenated Roman numerals: PDIII → PD III
     name = re.sub(r"([A-Za-z]{2,})(III|IV|II)", r"\1 \2", name)
-    return re.sub(r"\s+", " ", name.upper()).strip()
+    name = re.sub(r"\s+", " ", name.upper()).strip()
+    # Collapse runs of consecutive single letters: "J V S LLC" → "JVS LLC"
+    def _collapse_singles(m):
+        return m.group(0).replace(" ", "")
+    name = re.sub(r"\b[A-Z](?:\s[A-Z]){1,}\b", _collapse_singles, name)
+    return name
+
+
+# Date-like pattern: strips dates from addresses before comparison and number extraction
+_MONTH_NAMES = (r'(?:JAN(?:UARY)?|FEB(?:RUARY)?|MAR(?:CH)?|APR(?:IL)?|MAY'
+                r'|JUNE?|JULY?|AUG(?:UST)?|SEP(?:T(?:EMBER)?)?'
+                r'|OCT(?:OBER)?|NOV(?:EMBER)?|DEC(?:EMBER)?)')
+_DATE_RE = re.compile(
+    r'\b' + _MONTH_NAMES + r'[\s,]+\d{1,2}[\s,]+\d{2,4}\b'  # JUNE 14, 2012
+    r'|\b\d{1,2}[\s,]+' + _MONTH_NAMES + r'[\s,]+\d{2,4}\b' # 14 JUNE 2012
+    r'|\b' + _MONTH_NAMES + r'[\s,]+\d{4}\b'                 # MARCH 2012 (no day)
+    r'|\b\d{1,2}[/\-\s]\d{1,2}[/\-\s]\d{2,4}\b'             # 1-23-14, MM/DD/YYYY
+    r'|\b\d{8}\b'                                              # MMDDYYYY (8 digits)
+    r'|\b(?:19|20)\d{2}\b'                                     # 4-digit year 19xx/20xx
+    r'|\b\d{1,2}[/\-]\d{2,4}\b',                              # MM/YYYY or MM-YY
+    re.IGNORECASE
+)
 
 
 def normalize_address(addr, trust: bool = False) -> str:
@@ -284,6 +368,16 @@ def normalize_address(addr, trust: bool = False) -> str:
     if trust:
         return re.sub(r"\s+", " ", addr.upper()).strip()
     addr = addr.upper()
+
+    # Strip "DATED <date>" patterns from address text (conservative — month names only,
+    # NOT standalone 4-digit numbers which could be house numbers like 1950, 2000)
+    addr = re.sub(r'\bDATED\s+', '', addr)
+    addr = re.sub(
+        r'\b' + _MONTH_NAMES + r'[\s,]+\d{1,2}[\s,]+\d{2,4}\b'
+        r'|\b\d{1,2}[\s,]+' + _MONTH_NAMES + r'[\s,]+\d{2,4}\b'
+        r'|\b' + _MONTH_NAMES + r'[\s,]+\d{4}\b',
+        ' ', addr, flags=re.IGNORECASE)
+    addr = re.sub(r'\s+', ' ', addr).strip()
 
     # STRICT: Treat as PO Box ONLY if entire line is exactly "BOX <num/wordnum>"
     m = re.fullmatch(
@@ -390,6 +484,13 @@ def street_core_for_match(addr_norm: str) -> str:
     return " ".join(tokens).strip()
 
 
+
+def extract_addr_numbers(addr_norm: str) -> set:
+    """Extract embedded numbers from address, ignoring date-like patterns."""
+    cleaned = _DATE_RE.sub(' ', addr_norm or '')
+    return set(re.findall(r'\d{2,}', cleaned))
+
+
 # ===== Comparison functions =====
 
 def name_compare(name1: str, name2: str) -> dict:
@@ -418,7 +519,7 @@ def name_compare(name1: str, name2: str) -> dict:
             return {"name_score": 0.95, "name_match": True}
 
     # Strip business suffixes/descriptors, remove AND, canonicalize nicknames/numbers
-    STRIP = BUSINESS_SUFFIXES | BUSINESS_DESCRIPTORS | {'AND'}
+    STRIP = BUSINESS_SUFFIXES | BUSINESS_DESCRIPTORS | {'AND', 'THE'}
     t1 = [canonicalize_token(t) for t in t1_raw if t not in STRIP]
     t2 = [canonicalize_token(t) for t in t2_raw if t not in STRIP]
     if not t1 or not t2:
@@ -453,7 +554,8 @@ def name_compare(name1: str, name2: str) -> dict:
         if len(t1) >= 2 and len(t2) >= 2:
             first_match = (t1[0] == t2[0]
                            or (len(t1[0]) == 1 and len(t2[0]) > 1 and t1[0] == t2[0][0])
-                           or (len(t2[0]) == 1 and len(t1[0]) > 1 and t2[0] == t1[0][0]))
+                           or (len(t2[0]) == 1 and len(t1[0]) > 1 and t2[0] == t1[0][0])
+                           or (len(t1[0]) > 1 and len(t2[0]) > 1 and jaro_winkler(t1[0], t2[0]) >= 0.85))
             last_match = t1[-1] == t2[-1]
             if first_match and last_match:
                 overlap_coeff = max(overlap_coeff, 0.9)
@@ -533,11 +635,32 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
         score = addr_sim * (0.6 + 0.4 * city_sim)
         if zip_match and score >= 0.85:
             score = min(1.0, score + 0.05)
-        same = addr_sim >= 0.90 and city_sim >= 0.85
+
+        # Penalty: embedded numbers (2+ digits) that don't overlap (ignore dates)
+        nums1 = extract_addr_numbers(addr1_norm)
+        nums2 = extract_addr_numbers(addr2_norm)
+        nums_mismatch = (nums1 and nums2 and not nums1 & nums2)
+        if nums_mismatch:
+            score = max(0.0, score - 0.10)
+
+        # Penalty: both have zip codes but they don't match
+        zip_penalty = (zip1 and zip2 and zip1 != zip2)
+        if zip_penalty:
+            score = max(0.0, score - 0.20)
+
+        # Bonus: all embedded numbers match AND zip codes match
+        nums_all_match = (nums1 and nums2 and nums1 == nums2)
+        if nums_all_match and zip_match:
+            score = min(1.0, score + 0.50)
+
+        same = (addr_sim >= 0.90 and city_sim >= 0.85 and not nums_mismatch) or \
+               (nums_all_match and zip_match and city_sim >= 0.85)
         return {
             "same_address": same, "score": score,
             "reason": f"NON_STANDARD addr_sim={addr_sim:.2f} "
                       f"city_sim={city_sim:.2f} zip_match={zip_match}"
+                      f" nums_mismatch={nums_mismatch}"
+                      f" zip_penalty={zip_penalty}"
         }
 
     if not num1 or not num2:
@@ -615,6 +738,74 @@ def clean_ssn(ssn_raw) -> str:
     return digits
 
 
+# ===== API Override =====
+
+def api_override_name_scores(pairs):
+    """Send ambiguous name pairs to Claude API for semantic evaluation.
+
+    Args:
+        pairs: list of (index_into_results, canvas_name, dec_name)
+    Returns:
+        dict mapping result index -> new score (0-100)
+    """
+    try:
+        import anthropic
+    except ImportError:
+        print('  anthropic package not installed, skipping API override')
+        return {}
+
+    client = anthropic.Anthropic()
+    overrides = {}
+
+    for batch_start in range(0, len(pairs), API_BATCH_SIZE):
+        batch = pairs[batch_start:batch_start + API_BATCH_SIZE]
+        lines = []
+        for i, (idx, name1, name2) in enumerate(batch, 1):
+            lines.append(f'{i}. "{name1}" vs "{name2}"')
+
+        prompt = (
+            "You are evaluating whether business/person name pairs refer to the "
+            "same entity. These pairs already share the same SSN, so they are "
+            "likely the same person or company.\n\n"
+            "For each pair, score 0-100:\n"
+            "  100 = definitely same entity (exact or trivial variation)\n"
+            "  85-95 = very likely same (abbreviations, nicknames, minor differences)\n"
+            "  60-80 = probably same but significant differences\n"
+            "  30-55 = uncertain, could be different entities sharing SSN\n"
+            "  0-25 = likely different entities\n\n"
+            "Name pairs:\n" + "\n".join(lines) + "\n\n"
+            "Respond with ONLY a JSON object: {\"scores\": [score1, score2, ...]}"
+        )
+
+        try:
+            response = client.messages.create(
+                model=API_MODEL,
+                max_tokens=256,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = response.content[0].text.strip()
+            # Parse JSON from response (handle markdown code blocks)
+            if text.startswith('```'):
+                text = text.split('\n', 1)[1].rsplit('```', 1)[0].strip()
+            data = json.loads(text)
+            scores = data['scores']
+
+            for i, (idx, _, _) in enumerate(batch):
+                if i < len(scores):
+                    overrides[idx] = round5(max(0, min(100, scores[i])))
+        except Exception as e:
+            print(f'  API batch {batch_start // API_BATCH_SIZE + 1} failed: {e}')
+            err_str = str(e).lower()
+            if 'authentication_error' in err_str or '401' in err_str \
+               or 'credit balance' in err_str or 'billing' in err_str:
+                print('  Fatal API error — skipping remaining batches.')
+                print('  Check your API key and account billing at console.anthropic.com.')
+                break
+            continue
+
+    return overrides
+
+
 # ===== Main =====
 
 def main():
@@ -634,7 +825,7 @@ def main():
     cursor = conn.cursor()
     cursor.execute(
         'SELECT ssn, hdrcode, hdrname, addraddress, addrcity, '
-        'addrstate, addrzipcode, addrcontact FROM dec_ba_master')
+        'addrstate, addrzipcode, addrcontact, addrsubcode FROM dec_ba_master')
 
     dec_by_ssn = {}
     dec_total = 0
@@ -653,6 +844,7 @@ def main():
                 'addrstate': row[5],
                 'addrzipcode': row[6],
                 'addrcontact': row[7],
+                'addrsubcode': row[8],
             })
 
     print(f'Loaded {dec_total:,} DEC records')
@@ -671,6 +863,7 @@ def main():
             canvas_city TEXT,
             canvas_state TEXT,
             canvas_zip TEXT,
+            canvas_addrseq TEXT,
             -- Canvas identifiers
             canvas_id TEXT,
             canvas_ssn TEXT,
@@ -682,6 +875,7 @@ def main():
             dec_state TEXT,
             dec_zip TEXT,
             dec_contact TEXT,
+            dec_addrsubcode TEXT,
             -- Scores
             ssn_match REAL,
             name_score REAL,
@@ -690,6 +884,7 @@ def main():
             recommendation TEXT,
             dec_match_count INTEGER,
             Number_possible_address_matches INTEGER,
+            is_trust INTEGER DEFAULT 0,
             jib INTEGER,
             rev INTEGER,
             vendor INTEGER,
@@ -709,6 +904,11 @@ def main():
         'bad_ssn': 0,
     }
 
+    _trust_re = re.compile(
+        r'\b(TRUST|TRUSTEE|TRUSTEES|TRUSTEESHIP|TTEE|LIVING TRUST|'
+        r'FAMILY TRUST|REVOCABLE TRUST|IRREVOCABLE TRUST|'
+        r'TESTAMENTARY|ESTATE OF|DECEDENT)\b', re.IGNORECASE)
+
     start = time.time()
     total = len(canvas_df)
 
@@ -721,9 +921,12 @@ def main():
         canvas_state = row.get('ADDRSTATE', '')
         canvas_zip = row.get('ADDRZIPCODE', '')
         canvas_id = row.get('ID', '')
+        canvas_addrseq = row.get('ADDRSEQ', '')
 
         # Store digits-only SSN (cleaned of dashes, spaces, special chars)
         canvas_ssn_digits = re.sub(r'[^0-9]', '', str(canvas_ssn_raw)) if canvas_ssn_raw else ''
+
+        is_trust = 1 if _trust_re.search(str(canvas_name)) else 0
 
         base_record = {
             'canvas_name': canvas_name,
@@ -731,8 +934,10 @@ def main():
             'canvas_city': canvas_city,
             'canvas_state': canvas_state,
             'canvas_zip': canvas_zip,
+            'canvas_addrseq': canvas_addrseq,
             'canvas_id': canvas_id,
             'canvas_ssn': canvas_ssn_digits,
+            'is_trust': is_trust,
         }
 
         if not canvas_ssn:
@@ -746,7 +951,7 @@ def main():
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
                 'dec_city': '', 'dec_state': '', 'dec_zip': '',
-                'dec_contact': '',
+                'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
                 'address_reason': 'NO SSN TO MATCH',
                 'recommendation': rec, 'dec_match_count': 0,
@@ -763,7 +968,7 @@ def main():
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
                 'dec_city': '', 'dec_state': '', 'dec_zip': '',
-                'dec_contact': '',
+                'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
                 'address_reason': 'SSN NOT FOUND IN DEC',
                 'recommendation': 'NEW BA - NO DEC MATCH',
@@ -797,9 +1002,15 @@ def main():
                 best_name_score = name_result['name_score']
 
         # Determine recommendation
-        if best_name_score < 0.66:
-            rec = 'LIKELY NEW BA - SSN MATCH NAME MISMATCH'
-            stats['likely_new_ba'] += 1
+        avg_name_addr = (best_name_score + best_addr_score) / 2
+        if avg_name_addr < 0.40:
+            # Name score 45+ with low address = same BA, new address
+            if best_name_score >= 0.45 and best_addr_score <= 0.30:
+                rec = 'EXISTING BA - NEW ADDRESS'
+                stats['existing_ba_new_addr'] += 1
+            else:
+                rec = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
+                stats['likely_new_ba'] += 1
         elif best_addr_result['same_address']:
             rec = 'EXISTING BA - EXISTING ADDRESS'
             stats['existing_ba_existing_addr'] += 1
@@ -819,6 +1030,7 @@ def main():
             'dec_state': best_dec['addrstate'],
             'dec_zip': best_dec['addrzipcode'],
             'dec_contact': best_dec['addrcontact'],
+            'dec_addrsubcode': best_dec.get('addrsubcode', ''),
             'ssn_match': 100.0,
             'name_score': round5(best_name_score * 100),
             'address_score': round5(best_addr_score * 100),
@@ -827,6 +1039,9 @@ def main():
             'dec_match_count': len(dec_matches),
             'Number_possible_address_matches': possible_addr_matches,
         })
+        # Also flag as trust if DEC name matches
+        if not is_trust and _trust_re.search(str(best_dec['hdrname'])):
+            results[-1]['is_trust'] = 1
 
         if (idx + 1) % 5000 == 0:
             elapsed = time.time() - start
@@ -838,6 +1053,43 @@ def main():
     elapsed = time.time() - start
     print(f'\nProcessed {total:,} records in {elapsed:.1f}s')
 
+    # 4b. API override for ambiguous name scores
+    if USE_API_OVERRIDE:
+        ambiguous = [
+            (i, r['canvas_name'], r['dec_name'])
+            for i, r in enumerate(results)
+            if r['ssn_match'] == 100.0
+            and API_SCORE_MIN <= r['name_score'] <= API_SCORE_MAX
+        ]
+        if ambiguous:
+            batches = (len(ambiguous) + API_BATCH_SIZE - 1) // API_BATCH_SIZE
+            print(f'\nAPI override: {len(ambiguous)} ambiguous name pairs '
+                  f'({batches} batch{"es" if batches != 1 else ""})...')
+            overrides = api_override_name_scores(ambiguous)
+            reclassified = 0
+            for idx, new_score in overrides.items():
+                r = results[idx]
+                old_rec = r['recommendation']
+                r['name_score'] = float(new_score)
+                # Re-classify recommendation with new score
+                addr_score = float(r['address_score'])
+                avg = (float(new_score) + addr_score) / 2
+                if avg < 40:
+                    if float(new_score) >= 45 and addr_score <= 30:
+                        r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                    else:
+                        r['recommendation'] = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
+                elif addr_score >= 90:
+                    r['recommendation'] = 'EXISTING BA - EXISTING ADDRESS'
+                elif addr_score >= 75:
+                    r['recommendation'] = 'EXISTING BA - LIKELY SAME ADDRESS'
+                else:
+                    r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                if r['recommendation'] != old_rec:
+                    reclassified += 1
+            print(f'  Overrode {len(overrides)} scores, '
+                  f'{reclassified} reclassified')
+
     # 5. Insert results into database
     print(f'\nWriting {len(results):,} results to canvas_dec_matches table...')
     results_df = pd.DataFrame(results)
@@ -847,10 +1099,11 @@ def main():
         'ssn_match', 'name_score', 'address_score', 'address_reason',
         'recommendation',
         'canvas_name', 'canvas_address', 'canvas_city', 'canvas_state',
-        'canvas_zip', 'canvas_id', 'canvas_ssn',
+        'canvas_zip', 'canvas_addrseq', 'canvas_id', 'canvas_ssn',
         'dec_hdrcode', 'dec_name', 'dec_address', 'dec_city',
-        'dec_state', 'dec_zip', 'dec_contact',
+        'dec_state', 'dec_zip', 'dec_contact', 'dec_addrsubcode',
         'dec_match_count', 'Number_possible_address_matches',
+        'is_trust',
     ]
     results_df = results_df[col_order]
     results_df = results_df.sort_values('recommendation').reset_index(drop=True)
@@ -932,6 +1185,7 @@ def main():
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         export_df.to_excel(writer, index=False, sheet_name='Matches')
         ws = writer.sheets['Matches']
+        ws.freeze_panes = 'A2'
 
         blue_fill = PatternFill(start_color='DCE6F1', end_color='DCE6F1',
                                 fill_type='solid')
@@ -1013,8 +1267,8 @@ def main():
             len(df[df['recommendation'] == 'EXISTING BA - LIKELY SAME ADDRESS']))
         add('EXISTING BA - NEW ADDRESS',
             len(df[df['recommendation'] == 'EXISTING BA - NEW ADDRESS']))
-        add('LIKELY NEW BA - SSN MATCH NAME MISMATCH',
-            len(df[df['recommendation'] == 'LIKELY NEW BA - SSN MATCH NAME MISMATCH']))
+        add('LIKELY BA MATCH - SSN MATCH NAME MISMATCH',
+            len(df[df['recommendation'] == 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH']))
         add('NEW BA - NO DEC MATCH',
             len(df[df['recommendation'] == 'NEW BA - NO DEC MATCH']))
         add('NEW BA - NO SSN',
