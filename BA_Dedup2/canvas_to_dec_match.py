@@ -26,12 +26,18 @@ if os.path.exists(_env_path):
 DB_PATH = 'ba_dedup.db'
 CANVAS_FILE = 'input/CANVAS_BA_MASTER_.xlsx'
 
-# API override: send ambiguous name matches (score 15-50) to Claude for evaluation
-USE_API_OVERRIDE = False
+# API override: send ambiguous name matches (score 15-70) to Claude for evaluation
+USE_API_OVERRIDE = True
 API_MODEL = 'claude-sonnet-4-5-20250929'
 API_SCORE_MIN = 15
-API_SCORE_MAX = 50
+API_SCORE_MAX = 70
 API_BATCH_SIZE = 20
+
+# Google Address Validation API: override ambiguous address scores (15-65)
+USE_GOOGLE_ADDRESS_API = os.environ.get('GOOGLE_ADDRESS_API_ENABLED', 'false').lower() == 'true'
+GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
+GOOGLE_ADDR_SCORE_MIN = 15
+GOOGLE_ADDR_SCORE_MAX = 65
 
 # ===== String matching functions =====
 
@@ -189,12 +195,22 @@ NICKNAMES = {
 
 BUSINESS_SUFFIXES = {
     'LLC', 'INC', 'CORP', 'CO', 'LTD', 'LP', 'LC', 'LLP',
-    'PARTNERSHIP', 'PARTNE', 'PARTNERSHP',
+    'PARTNERSHIP', 'PARTNE', 'PARTNERSHP', 'COMPANY',
 }
 
 # Business descriptors: interchangeable fluff when SSN already matches
 BUSINESS_DESCRIPTORS = {
     'SERVICES', 'HOLDINGS', 'INVESTMENT', 'INVESTMENTS',
+}
+
+# Oil & gas industry terms: generic words that inflate scores between
+# unrelated companies (e.g. OVINTIV EXPLORATION vs NEWFIELD EXPLORATION)
+INDUSTRY_TERMS = {
+    'EXPLORATION', 'DRILLING', 'PRODUCTION', 'PETROLEUM',
+    'ENERGY', 'RESOURCES', 'OPERATING', 'PIPELINE',
+    'MIDSTREAM', 'UPSTREAM', 'DOWNSTREAM',
+    'MINERALS', 'ROYALTIES', 'PROPERTIES',
+    'OIL', 'GAS', 'NATURAL',
 }
 
 NAME_SUFFIXES = {'JR', 'SR', 'II', 'III', 'IV', 'V'}
@@ -519,7 +535,7 @@ def name_compare(name1: str, name2: str) -> dict:
             return {"name_score": 0.95, "name_match": True}
 
     # Strip business suffixes/descriptors, remove AND, canonicalize nicknames/numbers
-    STRIP = BUSINESS_SUFFIXES | BUSINESS_DESCRIPTORS | {'AND', 'THE'}
+    STRIP = BUSINESS_SUFFIXES | BUSINESS_DESCRIPTORS | INDUSTRY_TERMS | {'AND', 'THE'}
     t1 = [canonicalize_token(t) for t in t1_raw if t not in STRIP]
     t2 = [canonicalize_token(t) for t in t2_raw if t not in STRIP]
     if not t1 or not t2:
@@ -569,6 +585,35 @@ def name_compare(name1: str, name2: str) -> dict:
         score = max(score, compact_jw)
 
     return {"name_score": score, "name_match": score >= 0.85}
+
+
+# Regex for extracting names from address fields (C/O, ATTN patterns)
+_CO_RE = re.compile(
+    r'\bC\s*/?\s*O\s+(.+?)(?:\s{2,}|\s+\d|\s+P\s*\.?\s*O\s|\s+BOX\s|$)',
+    re.IGNORECASE)
+_ATTN_RE = re.compile(
+    r'\bATTN:?\s+(.+?)(?:\s{2,}|\s+\d|\s+P\s*\.?\s*O\s|\s+BOX\s|$)',
+    re.IGNORECASE)
+_ROLE_SUFFIX_RE = re.compile(
+    r',?\s*(MANAGER|AGENT|DIRECTOR|TREASURER|SECRETARY|OFFICER|'
+    r'PRESIDENT|VP|VICE PRESIDENT|ADMINISTRATOR|SUPERVISOR)\s*$',
+    re.IGNORECASE)
+
+
+def extract_names_from_address(addr: str) -> list:
+    """Extract embedded person/entity names from C/O and ATTN patterns."""
+    if not addr:
+        return []
+    text = safe_str(addr).upper()
+    names = []
+    for pattern in (_CO_RE, _ATTN_RE):
+        m = pattern.search(text)
+        if m:
+            name = m.group(1).strip().rstrip(',')
+            name = _ROLE_SUFFIX_RE.sub('', name).strip()
+            if len(name) >= 3:
+                names.append(name)
+    return names
 
 
 def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
@@ -806,6 +851,287 @@ def api_override_name_scores(pairs):
     return overrides
 
 
+# ===== Google Address Validation API =====
+
+_google_addr_cache = {}  # keyed on (address, city, state, zip) → dict
+_google_api_calls = 0
+
+
+def _init_google_cache(conn):
+    """Create persistent cache table and pre-load into memory."""
+    cursor = conn.cursor()
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS google_address_lookups (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            input_address TEXT NOT NULL,
+            input_city TEXT NOT NULL,
+            input_state TEXT NOT NULL,
+            input_zip TEXT NOT NULL,
+            std_address TEXT,
+            std_city TEXT,
+            std_state TEXT,
+            std_zip TEXT,
+            verdict_json TEXT,
+            lookup_status TEXT NOT NULL DEFAULT 'success',
+            http_status INTEGER,
+            first_source_type TEXT,
+            first_source_id TEXT,
+            first_source_sub_id TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(input_address, input_city, input_state, input_zip)
+        )
+    """)
+    conn.commit()
+
+    # Pre-load success and failed rows (skip quota_error so they get retried)
+    cursor.execute("""
+        SELECT input_address, input_city, input_state, input_zip,
+               std_address, std_city, std_state, std_zip,
+               verdict_json, lookup_status
+        FROM google_address_lookups
+        WHERE lookup_status IN ('success', 'failed')
+    """)
+    for row in cursor:
+        key = (row[0], row[1], row[2], row[3])
+        if row[9] == 'success':
+            verdict = json.loads(row[8]) if row[8] else None
+            _google_addr_cache[key] = {
+                'standardized': (row[4], row[5], row[6], row[7]),
+                'verdict': verdict,
+                'status': 'success',
+            }
+        else:  # failed
+            _google_addr_cache[key] = {
+                'standardized': None,
+                'verdict': None,
+                'status': 'failed',
+            }
+    if _google_addr_cache:
+        print(f'Loaded {len(_google_addr_cache):,} cached Google address lookups')
+
+
+def google_validate_address(address, city, state, zip_code, conn=None,
+                            source_info=None):
+    """Validate/standardize a single address via Google Address Validation API.
+
+    Returns dict with keys: standardized, verdict, status.
+    Uses in-memory cache (populated from persistent DB table) first.
+
+    Args:
+        address, city, state, zip_code: Address components to validate
+        conn: SQLite connection for persistent cache writes
+        source_info: Optional (source_type, source_id, source_sub_id) for traceability
+    """
+    global _google_api_calls
+
+    key = (address, city, state, zip_code)
+    if key in _google_addr_cache:
+        return _google_addr_cache[key]
+
+    try:
+        import requests as req
+    except ImportError:
+        return {'standardized': None, 'verdict': None, 'status': 'failed'}
+
+    url = f'https://addressvalidation.googleapis.com/v1:validateAddress?key={GOOGLE_API_KEY}'
+    body = {
+        'address': {
+            'regionCode': 'US',
+            'addressLines': [address],
+            'locality': city,
+            'administrativeArea': state,
+            'postalCode': zip_code,
+        }
+    }
+
+    try:
+        resp = req.post(url, json=body, timeout=10)
+        _google_api_calls += 1
+
+        if resp.status_code in (403, 429):
+            # Don't cache quota errors in memory — they should be retried next run
+            _persist_lookup(conn, key, None, None, 'quota_error',
+                            resp.status_code, source_info)
+            return {'standardized': None, 'verdict': None, 'status': 'quota_error'}
+
+        if resp.status_code != 200:
+            result = {'standardized': None, 'verdict': None, 'status': 'failed'}
+            _google_addr_cache[key] = result
+            _persist_lookup(conn, key, None, None, 'failed',
+                            resp.status_code, source_info)
+            return result
+
+        data = resp.json()
+        api_result = data.get('result', {})
+        verdict = api_result.get('verdict')
+        postal = api_result.get('address', {}).get('postalAddress', {})
+
+        # Build address from components to exclude point_of_interest (name)
+        # that Google bakes into addressLines
+        components = api_result.get('address', {}).get('addressComponents', [])
+        comp_map = {}
+        for comp in components:
+            ctype = comp.get('componentType', '')
+            ctext = comp.get('componentName', {}).get('text', '')
+            if ctext:
+                comp_map[ctype] = ctext
+
+        # Reconstruct street address from components (skip point_of_interest)
+        parts = []
+        if 'street_number' in comp_map:
+            parts.append(comp_map['street_number'])
+        if 'route' in comp_map:
+            parts.append(comp_map['route'])
+        if 'subpremise' in comp_map:
+            parts.append(comp_map['subpremise'])
+        if parts:
+            std_addr = ' '.join(parts)
+        else:
+            # Fallback to addressLines if no components
+            std_lines = postal.get('addressLines', [])
+            std_addr = std_lines[0] if std_lines else address
+
+        std_city = postal.get('locality', city)
+        std_state = postal.get('administrativeArea', state)
+        std_zip = postal.get('postalCode', zip_code)
+        if std_zip and len(std_zip) > 5:
+            std_zip = std_zip[:5]
+
+        standardized = (std_addr.upper(), std_city.upper(),
+                        std_state.upper(), std_zip)
+        result = {
+            'standardized': standardized,
+            'verdict': verdict,
+            'status': 'success',
+        }
+        _google_addr_cache[key] = result
+        _persist_lookup(conn, key, standardized, verdict, 'success',
+                        resp.status_code, source_info)
+        return result
+
+    except Exception:
+        result = {'standardized': None, 'verdict': None, 'status': 'failed'}
+        _google_addr_cache[key] = result
+        _persist_lookup(conn, key, None, None, 'failed', None, source_info)
+        return result
+
+
+def _persist_lookup(conn, key, standardized, verdict, status, http_status,
+                    source_info):
+    """Write a lookup result to the persistent google_address_lookups table."""
+    if not conn:
+        return
+    try:
+        verdict_str = json.dumps(verdict) if verdict else None
+        src_type = source_info[0] if source_info else None
+        src_id = source_info[1] if source_info else None
+        src_sub = source_info[2] if source_info else None
+        conn.execute("""
+            INSERT OR REPLACE INTO google_address_lookups
+            (input_address, input_city, input_state, input_zip,
+             std_address, std_city, std_state, std_zip,
+             verdict_json, lookup_status, http_status,
+             first_source_type, first_source_id, first_source_sub_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (key[0], key[1], key[2], key[3],
+              standardized[0] if standardized else None,
+              standardized[1] if standardized else None,
+              standardized[2] if standardized else None,
+              standardized[3] if standardized else None,
+              verdict_str, status, http_status,
+              src_type, src_id, src_sub))
+        conn.commit()
+    except Exception:
+        pass  # Don't let cache write failures break the pipeline
+
+
+def google_override_address_scores(pairs, conn):
+    """Send ambiguous address pairs to Google Address Validation API.
+
+    For each pair, validates both Canvas and DEC addresses, then re-runs
+    address_compare() on the standardized forms.
+
+    Args:
+        pairs: list of (index, canvas_addr, canvas_city, canvas_state, canvas_zip,
+                        canvas_id, canvas_addrseq,
+                        dec_addr, dec_city, dec_state, dec_zip,
+                        dec_hdrcode, dec_addrsubcode, original_score)
+        conn: SQLite connection for persistent cache
+    Returns:
+        dict mapping result index -> override info dict with keys:
+        new_score, same_address, canvas_std, canvas_verdict,
+        dec_std, dec_verdict, score_changed
+    """
+    global _google_api_calls
+    _google_api_calls = 0
+    overrides = {}
+    cache_hits_before = len(_google_addr_cache)
+    quota_error = False
+
+    for count, pair in enumerate(pairs, 1):
+        if quota_error:
+            break
+
+        (idx, c_addr, c_city, c_state, c_zip, c_id, c_addrseq,
+         d_addr, d_city, d_state, d_zip, d_hdrcode, d_addrsubcode,
+         orig_score) = pair
+
+        # Validate Canvas address
+        c_result = google_validate_address(
+            c_addr, c_city, c_state, c_zip, conn=conn,
+            source_info=('canvas', c_id, c_addrseq))
+        if c_result['status'] == 'quota_error':
+            print('  Google API quota/auth error — stopping remaining calls.')
+            print('  Check your API key and billing at console.cloud.google.com.')
+            quota_error = True
+            break
+
+        # Validate DEC address
+        d_result = google_validate_address(
+            d_addr, d_city, d_state, d_zip, conn=conn,
+            source_info=('dec', d_hdrcode, d_addrsubcode))
+        if d_result['status'] == 'quota_error':
+            print('  Google API quota/auth error — stopping remaining calls.')
+            quota_error = True
+            break
+
+        # Build override entry for this pair (even if score doesn't change)
+        entry = {
+            'canvas_std': c_result['standardized'],
+            'canvas_verdict': c_result['verdict'],
+            'dec_std': d_result['standardized'],
+            'dec_verdict': d_result['verdict'],
+        }
+
+        # Re-compare if both sides succeeded
+        if c_result['standardized'] and d_result['standardized']:
+            c_std = c_result['standardized']
+            d_std = d_result['standardized']
+            new_compare = address_compare(c_std[0], c_std[1], c_std[3],
+                                          d_std[0], d_std[1], d_std[3])
+            new_score = round5(new_compare['score'] * 100)
+            entry['new_score'] = new_score
+            entry['same_address'] = new_compare['same_address']
+            entry['score_changed'] = abs(new_score - orig_score) >= 10
+        else:
+            entry['new_score'] = orig_score
+            entry['same_address'] = None
+            entry['score_changed'] = False
+
+        overrides[idx] = entry
+
+        if count % 100 == 0:
+            cache_hits = len(_google_addr_cache) - cache_hits_before
+            print(f'  Progress: {count}/{len(pairs)} pairs '
+                  f'({_google_api_calls} API calls, ~{cache_hits} cache hits)')
+
+    cache_hits = len(_google_addr_cache) - cache_hits_before
+    print(f'  Google API: {_google_api_calls} calls, '
+          f'{len(_google_addr_cache)} cached addresses')
+
+    return overrides
+
+
 # ===== Main =====
 
 def main():
@@ -852,6 +1178,10 @@ def main():
     print(f'DEC records with valid SSN: {dec_with_ssn:,}')
     print(f'Unique DEC SSNs: {len(dec_by_ssn):,}')
 
+    # 2b. Init persistent Google address cache (if enabled)
+    if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
+        _init_google_cache(conn)
+
     # 3. Create output table (MERGE_OUTPUT.csv format + match scores)
     cursor.execute('DROP TABLE IF EXISTS canvas_dec_matches')
     cursor.execute("""
@@ -879,12 +1209,28 @@ def main():
             -- Scores
             ssn_match REAL,
             name_score REAL,
+            name_boost_source TEXT,
             address_score REAL,
             address_reason TEXT,
             recommendation TEXT,
             dec_match_count INTEGER,
             Number_possible_address_matches INTEGER,
             is_trust INTEGER DEFAULT 0,
+            -- Google Address Lookup: Canvas
+            before_lookup_address TEXT,
+            before_lookup_city TEXT,
+            before_lookup_state TEXT,
+            before_lookup_zip TEXT,
+            address_looked_up INTEGER DEFAULT 0,
+            canvas_lookup_verdict TEXT,
+            -- Google Address Lookup: DEC
+            before_lookup_dec_address TEXT,
+            before_lookup_dec_city TEXT,
+            before_lookup_dec_state TEXT,
+            before_lookup_dec_zip TEXT,
+            dec_address_looked_up INTEGER DEFAULT 0,
+            dec_lookup_verdict TEXT,
+            --
             jib INTEGER,
             rev INTEGER,
             vendor INTEGER,
@@ -938,6 +1284,19 @@ def main():
             'canvas_id': canvas_id,
             'canvas_ssn': canvas_ssn_digits,
             'is_trust': is_trust,
+            # Google Address Lookup defaults
+            'before_lookup_address': None,
+            'before_lookup_city': None,
+            'before_lookup_state': None,
+            'before_lookup_zip': None,
+            'address_looked_up': 0,
+            'canvas_lookup_verdict': None,
+            'before_lookup_dec_address': None,
+            'before_lookup_dec_city': None,
+            'before_lookup_dec_state': None,
+            'before_lookup_dec_zip': None,
+            'dec_address_looked_up': 0,
+            'dec_lookup_verdict': None,
         }
 
         if not canvas_ssn:
@@ -955,7 +1314,7 @@ def main():
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
                 'address_reason': 'NO SSN TO MATCH',
                 'recommendation': rec, 'dec_match_count': 0,
-            'Number_possible_address_matches': 0,
+            'Number_possible_address_matches': 0, 'name_boost_source': None,
             })
             continue
 
@@ -973,7 +1332,7 @@ def main():
                 'address_reason': 'SSN NOT FOUND IN DEC',
                 'recommendation': 'NEW BA - NO DEC MATCH',
                 'dec_match_count': 0,
-                'Number_possible_address_matches': 0,
+                'Number_possible_address_matches': 0, 'name_boost_source': None,
             })
             continue
 
@@ -983,23 +1342,80 @@ def main():
         best_dec = None
         best_addr_result = None
         best_name_score = 0.0
+        best_boost_source = None
         possible_addr_matches = 0
+
+        # Pre-extract names from Canvas address (once per Canvas record)
+        canvas_addr_names = extract_names_from_address(canvas_addr)
 
         for dec in dec_matches:
             addr_result = address_compare(
                 canvas_addr, canvas_city, canvas_zip,
                 dec['addraddress'], dec['addrcity'], dec['addrzipcode'])
             name_result = name_compare(canvas_name, dec['hdrname'])
+            primary_score = name_result['name_score']
+
+            # --- Supplementary name comparisons (boost only) ---
+            effective_score = primary_score
+            boost_source = None
+
+            if primary_score < 0.95:
+                supp_candidates = []
+                dec_contact = safe_str(dec.get('addrcontact', ''))
+                dec_addr_names = extract_names_from_address(
+                    dec.get('addraddress', ''))
+
+                # 1) Canvas name vs DEC addrcontact
+                if dec_contact:
+                    s = name_compare(canvas_name, dec_contact)['name_score']
+                    if s > effective_score:
+                        supp_candidates.append(('DEC_CONTACT', s))
+
+                # 2) Canvas addr name vs DEC hdrname
+                for aname in canvas_addr_names:
+                    s = name_compare(aname, dec['hdrname'])['name_score']
+                    if s > effective_score:
+                        supp_candidates.append(('CANVAS_ADDR_NAME', s))
+
+                # 3) Canvas addr name vs DEC addrcontact
+                if dec_contact:
+                    for aname in canvas_addr_names:
+                        s = name_compare(aname, dec_contact)['name_score']
+                        if s > effective_score:
+                            supp_candidates.append(
+                                ('CANVAS_ADDR+DEC_CONTACT', s))
+
+                # 4) Canvas name vs DEC addr name
+                for dname in dec_addr_names:
+                    s = name_compare(canvas_name, dname)['name_score']
+                    if s > effective_score:
+                        supp_candidates.append(('DEC_ADDR_NAME', s))
+
+                # 5) Canvas addr name vs DEC addr name
+                for aname in canvas_addr_names:
+                    for dname in dec_addr_names:
+                        s = name_compare(aname, dname)['name_score']
+                        if s > effective_score:
+                            supp_candidates.append(
+                                ('CANVAS_ADDR+DEC_ADDR', s))
+
+                # Pick best supplementary score, cap at 0.95
+                for src, score in supp_candidates:
+                    capped = min(score, 0.95)
+                    if capped > effective_score:
+                        effective_score = capped
+                        boost_source = src
 
             # Count DEC records exceeding both thresholds (using rounded scores)
-            if round5(name_result['name_score'] * 100) > 94 and round5(addr_result['score'] * 100) > 84:
+            if round5(effective_score * 100) > 94 and round5(addr_result['score'] * 100) > 84:
                 possible_addr_matches += 1
 
             if addr_result['score'] > best_addr_score:
                 best_addr_score = addr_result['score']
                 best_dec = dec
                 best_addr_result = addr_result
-                best_name_score = name_result['name_score']
+                best_name_score = effective_score
+                best_boost_source = boost_source
 
         # Determine recommendation
         avg_name_addr = (best_name_score + best_addr_score) / 2
@@ -1036,6 +1452,7 @@ def main():
             'address_score': round5(best_addr_score * 100),
             'address_reason': best_addr_result['reason'],
             'recommendation': rec,
+            'name_boost_source': best_boost_source,
             'dec_match_count': len(dec_matches),
             'Number_possible_address_matches': possible_addr_matches,
         })
@@ -1090,18 +1507,110 @@ def main():
             print(f'  Overrode {len(overrides)} scores, '
                   f'{reclassified} reclassified')
 
+    # 4c. Google Address Validation API override for ambiguous address scores
+    if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
+        ambiguous_addr = [
+            (i, r['canvas_address'], r['canvas_city'], r['canvas_state'],
+             r['canvas_zip'], r['canvas_id'], r['canvas_addrseq'],
+             r['dec_address'], r['dec_city'], r['dec_state'],
+             r['dec_zip'], r['dec_hdrcode'], r.get('dec_addrsubcode', ''),
+             r['address_score'])
+            for i, r in enumerate(results)
+            if r['ssn_match'] == 100.0
+            and GOOGLE_ADDR_SCORE_MIN <= r['address_score'] <= GOOGLE_ADDR_SCORE_MAX
+        ]
+        if ambiguous_addr:
+            print(f'\nGoogle Address API: {len(ambiguous_addr)} ambiguous address pairs...')
+            addr_overrides = google_override_address_scores(ambiguous_addr, conn)
+            reclassified = 0
+            score_overrides = 0
+            for idx, ov in addr_overrides.items():
+                r = results[idx]
+
+                # Save originals before overwriting (Canvas)
+                r['before_lookup_address'] = r['canvas_address']
+                r['before_lookup_city'] = r['canvas_city']
+                r['before_lookup_state'] = r['canvas_state']
+                r['before_lookup_zip'] = r['canvas_zip']
+                r['address_looked_up'] = 1
+                r['canvas_lookup_verdict'] = (
+                    json.dumps(ov['canvas_verdict'])
+                    if ov['canvas_verdict'] else None)
+
+                # Save originals before overwriting (DEC)
+                r['before_lookup_dec_address'] = r['dec_address']
+                r['before_lookup_dec_city'] = r['dec_city']
+                r['before_lookup_dec_state'] = r['dec_state']
+                r['before_lookup_dec_zip'] = r['dec_zip']
+                r['dec_address_looked_up'] = 1
+                r['dec_lookup_verdict'] = (
+                    json.dumps(ov['dec_verdict'])
+                    if ov['dec_verdict'] else None)
+
+                # Replace Canvas address with standardized
+                if ov['canvas_std']:
+                    r['canvas_address'] = ov['canvas_std'][0]
+                    r['canvas_city'] = ov['canvas_std'][1]
+                    r['canvas_state'] = ov['canvas_std'][2]
+                    r['canvas_zip'] = ov['canvas_std'][3]
+
+                # Replace DEC address with standardized
+                if ov['dec_std']:
+                    r['dec_address'] = ov['dec_std'][0]
+                    r['dec_city'] = ov['dec_std'][1]
+                    r['dec_state'] = ov['dec_std'][2]
+                    r['dec_zip'] = ov['dec_std'][3]
+
+                # Update score and re-classify if meaningfully changed
+                if ov['score_changed']:
+                    score_overrides += 1
+                    old_rec = r['recommendation']
+                    new_addr_score = float(ov['new_score'])
+                    r['address_score'] = new_addr_score
+                    name_score = float(r['name_score'])
+                    avg = (name_score + new_addr_score) / 2
+                    if avg < 40:
+                        if name_score >= 45 and new_addr_score <= 30:
+                            r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                        else:
+                            r['recommendation'] = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
+                    elif ov['same_address'] or new_addr_score >= 90:
+                        r['recommendation'] = 'EXISTING BA - EXISTING ADDRESS'
+                    elif new_addr_score >= 75:
+                        r['recommendation'] = 'EXISTING BA - LIKELY SAME ADDRESS'
+                    else:
+                        r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                    if r['recommendation'] != old_rec:
+                        reclassified += 1
+
+            print(f'  Validated {len(addr_overrides)} pairs, '
+                  f'{score_overrides} scores overridden, '
+                  f'{reclassified} reclassified')
+    elif USE_GOOGLE_ADDRESS_API and not GOOGLE_API_KEY:
+        print('\nGoogle Address API enabled but GOOGLE_API_KEY not set — skipping.')
+
     # 5. Insert results into database
     print(f'\nWriting {len(results):,} results to canvas_dec_matches table...')
     results_df = pd.DataFrame(results)
 
     # Ensure column order matches table schema
     col_order = [
-        'ssn_match', 'name_score', 'address_score', 'address_reason',
+        'ssn_match', 'name_score', 'name_boost_source', 'address_score', 'address_reason',
         'recommendation',
         'canvas_name', 'canvas_address', 'canvas_city', 'canvas_state',
         'canvas_zip', 'canvas_addrseq', 'canvas_id', 'canvas_ssn',
+        # Google lookup - Canvas
+        'before_lookup_address', 'before_lookup_city',
+        'before_lookup_state', 'before_lookup_zip',
+        'address_looked_up', 'canvas_lookup_verdict',
+        # DEC
         'dec_hdrcode', 'dec_name', 'dec_address', 'dec_city',
         'dec_state', 'dec_zip', 'dec_contact', 'dec_addrsubcode',
+        # Google lookup - DEC
+        'before_lookup_dec_address', 'before_lookup_dec_city',
+        'before_lookup_dec_state', 'before_lookup_dec_zip',
+        'dec_address_looked_up', 'dec_lookup_verdict',
+        #
         'dec_match_count', 'Number_possible_address_matches',
         'is_trust',
     ]
@@ -1297,6 +1806,18 @@ def main():
         add('New Addresses to Add', len(new_addr))
         add('Pct of Existing BAs Needing New Address',
             f"{len(new_addr) / max(len(ssn_matched), 1) * 100:.1f}%")
+        add_blank()
+
+        # --- Name Boost ---
+        boosted = ssn_matched[ssn_matched['name_boost_source'].notna()]
+        add('Records with Name Score Boosted', len(boosted),
+            'NAME BOOST (from address/contact fields)')
+        for src in ['DEC_CONTACT', 'CANVAS_ADDR_NAME',
+                     'CANVAS_ADDR+DEC_CONTACT', 'DEC_ADDR_NAME',
+                     'CANVAS_ADDR+DEC_ADDR']:
+            cnt = len(boosted[boosted['name_boost_source'] == src])
+            if cnt > 0:
+                add(f'  Boost from {src}', cnt)
         add_blank()
 
         # --- Trust / Estate ---

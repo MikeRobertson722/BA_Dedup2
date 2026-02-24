@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net" modified="2026-02-22" agent="Claude" version="24.0.0" type="device">
   <diagram id="scoring-detail" name="Name &amp; Address Scoring">
-    <mxGraphModel dx="2200" dy="2400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="3300" pageHeight="2400" math="0" shadow="0">
+    <mxGraphModel dx="2200" dy="2800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="3300" pageHeight="2400" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
@@ -302,66 +302,101 @@
         </mxCell>
 
         <!-- ================================================================ -->
+        <!-- GOOGLE ADDRESS API POST-PROCESSING                                -->
+        <!-- ================================================================ -->
+        <mxCell id="google_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="250" y="1010" width="1100" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="google_title" value="&lt;b&gt;Address API Override — Post-Processing (Step 4c)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;fontColor=#004D40;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1015" width="560" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="google_filter" value="&lt;b&gt;Filter:&lt;/b&gt; SSN match (ssn_match=100) AND addr_score 15–65&lt;br&gt;~223 ambiguous address pairs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1050" width="320" height="40" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="google_validate" value="&lt;b&gt;google_validate_address()&lt;/b&gt;&lt;br&gt;1. Check in-memory cache (pre-loaded from SQLite)&lt;br&gt;2. Call Google Address Validation API if miss&lt;br&gt;3. Persist to google_address_lookups table&lt;br&gt;4. Return: standardized (addr,city,state,zip) + verdict JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1100" width="340" height="85" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="google_cache" value="&lt;b&gt;Persistent Cache: google_address_lookups&lt;/b&gt;&lt;br&gt;Key: (input_address, city, state, zip)&lt;br&gt;success → cached permanently (never re-called)&lt;br&gt;failed → cached permanently&lt;br&gt;quota_error → retried on next run&lt;br&gt;&lt;b&gt;Run 2+: 0 API calls — all from cache&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1050" width="330" height="95" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="google_rescore" value="&lt;b&gt;Re-score &amp;amp; Reclassify&lt;/b&gt;&lt;br&gt;1. Save originals → before_lookup_* columns&lt;br&gt;2. Replace Canvas + DEC addresses with standardized&lt;br&gt;3. Re-run address_compare() on standardized pair&lt;br&gt;4. If |new_score − old_score| ≥ 10 → override &amp;amp; reclassify" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="640" y="1155" width="330" height="80" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="google_audit" value="&lt;b&gt;Audit Columns (per record):&lt;/b&gt;&lt;br&gt;before_lookup_address/city/state/zip (Canvas)&lt;br&gt;before_lookup_dec_address/city/state/zip (DEC)&lt;br&gt;address_looked_up, dec_address_looked_up&lt;br&gt;canvas_lookup_verdict, dec_lookup_verdict (JSON)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=9;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="1050" width="320" height="80" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrow: scoring to Google -->
+        <mxCell id="a_addr_to_google" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00897B;strokeWidth=2;dashed=1;" edge="1" parent="1" source="st_formula" target="google_group">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
         <!-- FINAL CLASSIFICATION (Bottom)                                    -->
         <!-- ================================================================ -->
         <mxCell id="final_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1020" width="1100" height="180" as="geometry"/>
+          <mxGeometry x="250" y="1230" width="1100" height="180" as="geometry"/>
         </mxCell>
         <mxCell id="final_title" value="&lt;b&gt;Final Classification (both scores combined, rounded to nearest 5)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1025" width="560" height="25" as="geometry"/>
+          <mxGeometry x="500" y="1235" width="560" height="25" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc1" value="&lt;b&gt;avg = (name_score + addr_score) / 2&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="560" y="1055" width="340" height="30" as="geometry"/>
+          <mxGeometry x="560" y="1265" width="340" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc2" value="avg &amp;lt; 40 AND&lt;br&gt;(name &amp;lt; 45 OR addr &amp;gt; 30)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1100" width="155" height="40" as="geometry"/>
+          <mxGeometry x="270" y="1310" width="155" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc2_label" value="LIKELY BA MATCH&lt;br&gt;SSN MATCH NAME MISMATCH" style="text;html=1;fontSize=9;fontColor=#b85450;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="265" y="1145" width="165" height="30" as="geometry"/>
+          <mxGeometry x="265" y="1355" width="165" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc2b" value="avg &amp;lt; 40 AND&lt;br&gt;name ≥ 45 AND addr ≤ 30" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="445" y="1100" width="155" height="40" as="geometry"/>
+          <mxGeometry x="445" y="1310" width="155" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc2b_label" value="EXISTING BA&lt;br&gt;NEW ADDRESS" style="text;html=1;fontSize=9;fontColor=#d6b656;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="450" y="1145" width="145" height="30" as="geometry"/>
+          <mxGeometry x="450" y="1355" width="145" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc3" value="same_address = True" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="620" y="1100" width="145" height="40" as="geometry"/>
+          <mxGeometry x="620" y="1310" width="145" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc3_label" value="EXISTING BA&lt;br&gt;EXISTING ADDRESS" style="text;html=1;fontSize=9;fontColor=#82b366;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="620" y="1145" width="145" height="30" as="geometry"/>
+          <mxGeometry x="620" y="1355" width="145" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc4" value="addr_score ≥ 75" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="785" y="1100" width="130" height="40" as="geometry"/>
+          <mxGeometry x="785" y="1310" width="130" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc4_label" value="EXISTING BA&lt;br&gt;LIKELY SAME ADDRESS" style="text;html=1;fontSize=9;fontColor=#6c8ebf;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="775" y="1145" width="150" height="30" as="geometry"/>
+          <mxGeometry x="775" y="1355" width="150" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc5" value="else (SSN matched)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="935" y="1100" width="130" height="40" as="geometry"/>
+          <mxGeometry x="935" y="1310" width="130" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc5_label" value="EXISTING BA&lt;br&gt;NEW ADDRESS" style="text;html=1;fontSize=9;fontColor=#9673a6;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="935" y="1145" width="130" height="30" as="geometry"/>
+          <mxGeometry x="935" y="1355" width="130" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="fc6" value="No SSN match" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1085" y="1100" width="120" height="40" as="geometry"/>
+          <mxGeometry x="1085" y="1310" width="120" height="40" as="geometry"/>
         </mxCell>
         <mxCell id="fc6_label" value="NEW BA&lt;br&gt;NO DEC MATCH" style="text;html=1;fontSize=9;fontColor=#666;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1085" y="1145" width="120" height="30" as="geometry"/>
+          <mxGeometry x="1085" y="1355" width="120" height="30" as="geometry"/>
         </mxCell>
 
         <!-- Arrows from scoring to final -->
         <mxCell id="a_name_to_final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;dashed=1;" edge="1" parent="1" source="nc_formula" target="final_group">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="a_addr_to_final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=2;dashed=1;" edge="1" parent="1" source="st_formula" target="final_group">
+        <mxCell id="a_google_to_final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00897B;strokeWidth=2;dashed=1;" edge="1" parent="1" source="google_group" target="final_group">
           <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
@@ -369,23 +404,58 @@
         <!-- TRUST DETECTION                                                  -->
         <!-- ================================================================ -->
         <mxCell id="trust_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1220" width="1100" height="120" as="geometry"/>
+          <mxGeometry x="250" y="1430" width="1100" height="120" as="geometry"/>
         </mxCell>
         <mxCell id="trust_title" value="&lt;b&gt;Trust Detection (is_trust flag)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;fontColor=#8B5E3C;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1225" width="560" height="25" as="geometry"/>
+          <mxGeometry x="500" y="1435" width="560" height="25" as="geometry"/>
         </mxCell>
 
         <mxCell id="trust_regex" value="&lt;b&gt;Regex check on both Canvas name AND matched DEC name:&lt;/b&gt;&lt;br&gt;TRUST | TRUSTEE | TRUSTEES | TTEE | LIVING TRUST | FAMILY TRUST&lt;br&gt;REVOCABLE TRUST | IRREVOCABLE TRUST | TESTAMENTARY | ESTATE OF | DECEDENT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1260" width="600" height="60" as="geometry"/>
+          <mxGeometry x="270" y="1470" width="600" height="60" as="geometry"/>
         </mxCell>
 
         <mxCell id="trust_output" value="&lt;b&gt;is_trust = 1&lt;/b&gt; if either Canvas or DEC name matches  ·  Highlighted light red in Excel output" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0C8B0;strokeColor=#D4A880;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="900" y="1270" width="420" height="40" as="geometry"/>
+          <mxGeometry x="900" y="1480" width="420" height="40" as="geometry"/>
         </mxCell>
 
         <!-- Arrow: final → trust -->
         <mxCell id="a_final_to_trust" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#D4A880;strokeWidth=2;dashed=1;" edge="1" parent="1" source="final_group" target="trust_group">
           <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <!-- ================================================================ -->
+        <!-- DECISION PRIORITY LEGEND                                          -->
+        <!-- ================================================================ -->
+        <mxCell id="legend_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;dashed=1;dashPattern=4 3;" vertex="1" parent="1">
+          <mxGeometry x="250" y="1570" width="1100" height="210" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_title" value="&lt;b&gt;Decision Priority (checked top-to-bottom, first match wins)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
+          <mxGeometry x="500" y="1575" width="560" height="25" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="lp1" value="&lt;b&gt;&lt;font color=&quot;#e67e22&quot;&gt;1.&lt;/font&gt;&lt;/b&gt; Name API Override: name_score 15–70 with SSN match → Claude Sonnet → override score → reclassify" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1605" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp2" value="&lt;b&gt;&lt;font color=&quot;#00897B&quot;&gt;2.&lt;/font&gt;&lt;/b&gt; Google Address Override: addr_score 15–65 with SSN match → validate/standardize both addresses → re-score → reclassify if Δ ≥ 10" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1628" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp3" value="&lt;b&gt;3.&lt;/b&gt; avg &amp;lt; 40 → check name≥45 &amp;amp; addr≤30 → either NAME MISMATCH or NEW ADDRESS (name override)" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1651" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp4" value="&lt;b&gt;4.&lt;/b&gt; same_address = True → EXISTING BA — EXISTING ADDRESS" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1674" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp5" value="&lt;b&gt;5.&lt;/b&gt; addr_score ≥ 75 → EXISTING BA — LIKELY SAME ADDRESS" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1697" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp6" value="&lt;b&gt;6.&lt;/b&gt; else (SSN matched) → EXISTING BA — NEW ADDRESS" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1720" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="lp7" value="&lt;b&gt;7.&lt;/b&gt; No SSN / Invalid SSN / No DEC match → NEW BA categories" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="270" y="1743" width="1050" height="20" as="geometry"/>
+        </mxCell>
+        <mxCell id="legend_footer" value="All scores rounded to nearest 5 before output  ·  Human review required — no auto-merge  ·  Google cache: 0 API calls on re-run" style="text;html=1;fontSize=10;fontColor=#999;align=center;" vertex="1" parent="1">
+          <mxGeometry x="400" y="1766" width="800" height="15" as="geometry"/>
         </mxCell>
 
       </root>
