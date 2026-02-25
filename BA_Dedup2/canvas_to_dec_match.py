@@ -2,7 +2,7 @@
 Canvas-to-DEC BA Matching Script
 Compares Canvas BA records against DEC BA Master in database.
 Scores BA match % (by SSN blocking) and Address match % separately.
-Outputs results to canvas_dec_matches table.
+Outputs results to import_merge_matches table.
 """
 import re
 import json
@@ -22,9 +22,15 @@ if os.path.exists(_env_path):
                 _key, _val = _line.split('=', 1)
                 os.environ[_key.strip()] = _val.strip()
 
+from snowflake_conn import get_snowflake_connection
+from config_loader import load_config, load_lookups
+
 # Paths
 DB_PATH = 'ba_dedup.db'
 CANVAS_FILE = 'input/CANVAS_BA_MASTER_.xlsx'
+
+# Snowflake toggle (set to false to run in SQLite-only mode)
+SNOWFLAKE_ENABLED = os.environ.get('SNOWFLAKE_ENABLED', 'false').lower() == 'true'
 
 # API override: send ambiguous name matches (score 15-70) to Claude for evaluation
 USE_API_OVERRIDE = True
@@ -39,6 +45,7 @@ GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY', '')
 GOOGLE_ADDR_SCORE_MIN = 15
 GOOGLE_ADDR_SCORE_MAX = 65
 
+# Classification thresholds (overridden by Snowflake config if available)
 # ===== String matching functions =====
 
 WORD_NUM = {
@@ -387,12 +394,16 @@ def normalize_address(addr, trust: bool = False) -> str:
 
     # Strip "DATED <date>" patterns from address text (conservative — month names only,
     # NOT standalone 4-digit numbers which could be house numbers like 1950, 2000)
-    addr = re.sub(r'\bDATED\s+', '', addr)
+    addr = re.sub(r'\b(?:DATED|DTD)\s+', '', addr)
     addr = re.sub(
         r'\b' + _MONTH_NAMES + r'[\s,]+\d{1,2}[\s,]+\d{2,4}\b'
         r'|\b\d{1,2}[\s,]+' + _MONTH_NAMES + r'[\s,]+\d{2,4}\b'
         r'|\b' + _MONTH_NAMES + r'[\s,]+\d{4}\b',
         ' ', addr, flags=re.IGNORECASE)
+    addr = re.sub(r'\s+', ' ', addr).strip()
+
+    # Strip numeric dates (MM/DD/YYYY, MM-DD-YYYY, etc.) that survived month-name check
+    addr = re.sub(r'\b\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}\b', ' ', addr)
     addr = re.sub(r'\s+', ' ', addr).strip()
 
     # STRICT: Treat as PO Box ONLY if entire line is exactly "BOX <num/wordnum>"
@@ -408,6 +419,7 @@ def normalize_address(addr, trust: bool = False) -> str:
     addr = re.sub(r"\bP\.?\s*O\.?\s*BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bP\.?\s*O\.?\s*B\b", "PO BOX", addr)
     addr = re.sub(r"\bPOB\b", "PO BOX", addr)
+    addr = re.sub(r"\bPOP\s+BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bPO\s+BOX\s*#", "PO BOX ", addr)
 
     # Normalize word numbers in PO BOX addresses
@@ -445,6 +457,20 @@ def normalize_address(addr, trust: bool = False) -> str:
         addr = re.sub(r"\b" + full + r"\b", abbr, addr)
 
     addr = re.sub(r"[.,\-]", "", addr)
+
+    # Strip leading non-address text (names, ATTN, C/O, titles, etc.)
+    # Only for addresses that don't start with a digit and aren't PO Boxes.
+    if not re.match(r'\s*\d', addr) and 'PO BOX' not in addr:
+        _ADDR_START_TOKENS = {'HWY', 'CR', 'RR', 'RT', 'RTE', 'FM', 'SH', 'SR',
+                              'CMR', 'PSC', 'HC', 'STAR',
+                              'APT', 'STE', 'UNIT', 'BLDG', 'FL', 'RM'}
+        m = re.search(r'\b(\d+)\s+[A-Z]', addr)
+        if m:
+            before = addr[:m.start()].strip()
+            last_word = before.split()[-1] if before.split() else ''
+            if last_word not in _ADDR_START_TOKENS:
+                addr = addr[m.start():]
+
     return re.sub(r"\s+", " ", addr).strip()
 
 
@@ -477,7 +503,7 @@ def parse_house_number(addr_norm: str) -> str:
 def parse_po_box_number(addr_norm: str) -> str:
     if not addr_norm or not POBOX_CANON_RE.search(addr_norm):
         return ""
-    m = re.search(r"\bPO\s*BOX\s*([A-Z]+|\d+)\b", addr_norm)
+    m = re.search(r"\bPO\s*BOX\s*([A-Z0-9]+)\b", addr_norm)
     if not m:
         return ""
     val = m.group(1).upper()
@@ -717,6 +743,11 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
 
     core1 = street_core_for_match(addr1_norm)
     core2 = street_core_for_match(addr2_norm)
+    # Fallback: if both cores are empty (street name IS a direction/type,
+    # e.g. "N HWY N", "E ST", "S CIR"), compare full post-house-number text
+    if not core1 and not core2:
+        core1 = re.sub(r"^\s*\d+\s+", "", addr1_norm)
+        core2 = re.sub(r"^\s*\d+\s+", "", addr2_norm)
     street_sim = max(similarity(core1, core2),
                      similarity(compact_alnum(core1), compact_alnum(core2)))
 
@@ -826,6 +857,17 @@ def api_override_name_scores(pairs):
             response = client.messages.create(
                 model=API_MODEL,
                 max_tokens=256,
+                temperature=0.0,
+                system=(
+                    "You are a business entity name matcher for oil and gas "
+                    "industry records. You compare name pairs that share the "
+                    "same SSN/TIN to determine if they refer to the same "
+                    "entity. Be conservative — different companies that happen "
+                    "to share a word like 'SOFTWARE' or 'ENERGY' are NOT the "
+                    "same entity. Only score high when the names are clearly "
+                    "variations of the same entity (abbreviations, nicknames, "
+                    "DBA names, trust vs individual, etc)."
+                ),
                 messages=[{"role": "user", "content": prompt}],
             )
             text = response.content[0].text.strip()
@@ -1134,58 +1176,241 @@ def google_override_address_scores(pairs, conn):
 
 # ===== Main =====
 
-def main():
-    print('=' * 80)
-    print('CANVAS-TO-DEC BA MATCHING')
-    print('=' * 80)
-
-    # 1. Read Canvas file
-    print(f'\nReading Canvas file: {CANVAS_FILE}')
-    canvas_df = pd.read_excel(CANVAS_FILE, dtype=str)
-    canvas_df = canvas_df.fillna('')
-    print(f'Loaded {len(canvas_df):,} Canvas records')
-
-    # 2. Load DEC records from database into memory dict keyed by clean SSN
-    print(f'\nLoading DEC records from database...')
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        'SELECT ssn, hdrcode, hdrname, addraddress, addrcity, '
-        'addrstate, addrzipcode, addrcontact, addrsubcode FROM dec_ba_master')
-
+def _load_dec_from_snowflake(sf_conn):
+    """Load DEC BA records directly from Enertia views in Snowflake."""
+    cur = sf_conn.cursor()
+    cur.execute("""
+        SELECT b.SSN, a.HDRCODE, a.HDRNAME, a.ADDRADDRESS, a.ADDRCITY,
+               a.ADDRSTATE, a.ADDRZIPCODE, a.ADDRCONTACT, a.ADDRSUBCODE
+        FROM DGO.ENERTIA.VW_BUSINESS_ASSOCIATE_ADDRESS a
+        JOIN DGO.ENERTIA.VW_BUSINESS_ASSOCIATE b
+          ON a.HDRCODE = b.BUS_ASSOC_CODE
+        WHERE b.ATT_TYPE = 'TaxInfo' AND a.HDRTYPECODE = 'BusAssoc'
+    """)
     dec_by_ssn = {}
     dec_total = 0
-    for row in cursor:
+    for row in cur:
         dec_total += 1
-        ssn_clean = clean_ssn(row[0])
+        # Clean embedded newlines (same as load_dec_master.py)
+        vals = []
+        for v in row:
+            if v and isinstance(v, str):
+                v = v.replace('\r\n', ' ').replace('\n', ' ').replace('\r', ' ')
+                v = re.sub(r'\s+', ' ', v).strip()
+            vals.append(v or '')
+        ssn_clean = clean_ssn(vals[0])
         if ssn_clean:
             if ssn_clean not in dec_by_ssn:
                 dec_by_ssn[ssn_clean] = []
             dec_by_ssn[ssn_clean].append({
-                'ssn': row[0],
-                'hdrcode': row[1],
-                'hdrname': row[2],
-                'addraddress': row[3],
-                'addrcity': row[4],
-                'addrstate': row[5],
-                'addrzipcode': row[6],
-                'addrcontact': row[7],
-                'addrsubcode': row[8],
+                'ssn': vals[0], 'hdrcode': vals[1], 'hdrname': vals[2],
+                'addraddress': vals[3], 'addrcity': vals[4],
+                'addrstate': vals[5], 'addrzipcode': vals[6],
+                'addrcontact': vals[7], 'addrsubcode': vals[8],
             })
+    cur.close()
+    return dec_by_ssn, dec_total
+
+
+def _write_results_to_snowflake(results_df, sf_conn, run_id):
+    """Write match results to Snowflake IMPORT_MERGE_MATCHES table."""
+    from snowflake.connector.pandas_tools import write_pandas
+
+    cur = sf_conn.cursor()
+    # Create archive table if it doesn't exist (same schema minus autoincrement)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS BA_PROCESS.IMPORT_MERGE_MATCHES_ARCHIVE
+        LIKE BA_PROCESS.IMPORT_MERGE_MATCHES
+    """)
+    # Ensure NAMEADDRSCORE column exists (added after initial table creation)
+    for tbl in ('IMPORT_MERGE_MATCHES', 'IMPORT_MERGE_MATCHES_ARCHIVE'):
+        try:
+            cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN NAMEADDRSCORE FLOAT")
+        except Exception:
+            pass  # column already exists
+    # Archive current results before truncating
+    cur.execute("""
+        INSERT INTO BA_PROCESS.IMPORT_MERGE_MATCHES_ARCHIVE
+        SELECT * FROM BA_PROCESS.IMPORT_MERGE_MATCHES
+    """)
+    cur.execute("TRUNCATE TABLE BA_PROCESS.IMPORT_MERGE_MATCHES")
+    sf_conn.commit()
+
+    # Prepare DataFrame for Snowflake (uppercase columns, add RUN_ID)
+    sf_df = results_df.copy()
+    sf_df.columns = [c.upper() for c in sf_df.columns]
+    sf_df['RUN_ID'] = run_id
+
+    success, nchunks, nrows, _ = write_pandas(
+        sf_conn, sf_df, 'IMPORT_MERGE_MATCHES',
+        schema='BA_PROCESS', database='DGO_MA',
+        auto_create_table=False)
+    cur.close()
+    return nrows
+
+
+def _classify(name_score, addr_score, bucket_rules):
+    """Classify record into bucket based on score ranges. Returns bucket name."""
+    for bucket in bucket_rules:
+        if (bucket['name_min'] <= name_score <= bucket['name_max'] and
+                bucket['addr_min'] <= addr_score <= bucket['addr_max']):
+            return bucket['name']
+    return 'NEEDS REVIEW'
+
+
+def main():
+    global USE_API_OVERRIDE, API_MODEL, API_SCORE_MIN, API_SCORE_MAX, API_BATCH_SIZE
+    global USE_GOOGLE_ADDRESS_API, GOOGLE_ADDR_SCORE_MIN, GOOGLE_ADDR_SCORE_MAX
+    global NICKNAMES, BUSINESS_SUFFIXES, BUSINESS_DESCRIPTORS, INDUSTRY_TERMS
+    global NAME_SUFFIXES, STATE_ABBREVS, BAD_SSNS
+
+    print('=' * 80)
+    print('CANVAS-TO-DEC BA MATCHING')
+    print('=' * 80)
+
+    # 0. Snowflake connection (optional)
+    sf_conn = None
+    if SNOWFLAKE_ENABLED:
+        try:
+            print('\nConnecting to Snowflake (check browser for SSO)...')
+            sf_conn = get_snowflake_connection()
+            cur = sf_conn.cursor()
+            cur.execute("SELECT CURRENT_DATABASE(), CURRENT_SCHEMA()")
+            db, schema = cur.fetchone()
+            cur.close()
+            print(f'  Connected: {db}.{schema}')
+        except Exception as e:
+            print(f'  Snowflake unavailable: {e}')
+            print(f'  Falling back to SQLite-only mode')
+            sf_conn = None
+    else:
+        print('\nSnowflake disabled (SNOWFLAKE_ENABLED=false)')
+
+    # 0b. Load config and lookups (Snowflake or hardcoded defaults)
+    print('\nLoading configuration...')
+    cfg = load_config(sf_conn)
+    lookups = load_lookups(sf_conn)
+
+    # Apply config to module globals
+    USE_API_OVERRIDE = cfg.get('USE_API_OVERRIDE', USE_API_OVERRIDE)
+    API_MODEL = cfg.get('API_MODEL', API_MODEL)
+    API_SCORE_MIN = cfg.get('API_SCORE_MIN', API_SCORE_MIN)
+    API_SCORE_MAX = cfg.get('API_SCORE_MAX', API_SCORE_MAX)
+    API_BATCH_SIZE = int(cfg.get('API_BATCH_SIZE', API_BATCH_SIZE))
+    GOOGLE_ADDR_SCORE_MIN = cfg.get('GOOGLE_ADDR_SCORE_MIN', GOOGLE_ADDR_SCORE_MIN)
+    GOOGLE_ADDR_SCORE_MAX = cfg.get('GOOGLE_ADDR_SCORE_MAX', GOOGLE_ADDR_SCORE_MAX)
+
+    # Build bucket classification rules from config
+    BUCKET_RULES = [
+        {
+            'name': 'NEW BA AND NEW ADDRESS',
+            'stat': 'new_ba_new_addr',
+            'name_min': cfg.get('NEW_BA_NEW_ADDR_MIN_NAME_SCORE', 0),
+            'name_max': cfg.get('NEW_BA_NEW_ADDR_MAX_NAME_SCORE', 0),
+            'addr_min': cfg.get('NEW_BA_NEW_ADDR_MIN_ADDR_SCORE', 0),
+            'addr_max': cfg.get('NEW_BA_NEW_ADDR_MAX_ADDR_SCORE', 0),
+        },
+        {
+            'name': 'EXISTING BA ADD NEW ADDRESS',
+            'stat': 'existing_ba_new_addr',
+            'name_min': cfg.get('EXISTING_BA_NEW_ADDR_MIN_NAME_SCORE', 100),
+            'name_max': cfg.get('EXISTING_BA_NEW_ADDR_MAX_NAME_SCORE', 100),
+            'addr_min': cfg.get('EXISTING_BA_NEW_ADDR_MIN_ADDR_SCORE', 0),
+            'addr_max': cfg.get('EXISTING_BA_NEW_ADDR_MAX_ADDR_SCORE', 0),
+        },
+        {
+            'name': 'EXISTING BA AND EXISTING ADDRESS',
+            'stat': 'existing_ba_existing_addr',
+            'name_min': cfg.get('EXISTING_BA_EXISTING_ADDR_MIN_NAME_SCORE', 100),
+            'name_max': cfg.get('EXISTING_BA_EXISTING_ADDR_MAX_NAME_SCORE', 100),
+            'addr_min': cfg.get('EXISTING_BA_EXISTING_ADDR_MIN_ADDR_SCORE', 100),
+            'addr_max': cfg.get('EXISTING_BA_EXISTING_ADDR_MAX_ADDR_SCORE', 100),
+        },
+    ]
+
+    # Apply lookups to module globals
+    if 'NICKNAME' in lookups:
+        NICKNAMES = lookups['NICKNAME']
+    if 'BUSINESS_SUFFIX' in lookups:
+        BUSINESS_SUFFIXES = lookups['BUSINESS_SUFFIX']
+    if 'BUSINESS_DESCRIPTOR' in lookups:
+        BUSINESS_DESCRIPTORS = lookups['BUSINESS_DESCRIPTOR']
+    if 'INDUSTRY_TERM' in lookups:
+        INDUSTRY_TERMS = lookups['INDUSTRY_TERM']
+    if 'NAME_SUFFIX' in lookups:
+        NAME_SUFFIXES = lookups['NAME_SUFFIX']
+    if 'STATE_ABBREV' in lookups:
+        STATE_ABBREVS = lookups['STATE_ABBREV']
+    if 'BAD_SSN' in lookups:
+        BAD_SSNS = lookups['BAD_SSN']
+    if 'TRUST_KEYWORD' in lookups:
+        TRUST_KEYWORDS = lookups['TRUST_KEYWORD']
+    else:
+        TRUST_KEYWORDS = {'TRUST', 'TRUSTEE', 'TRUSTEES', 'TRUSTEESHIP', 'TTEE',
+                          'LIVING TRUST', 'FAMILY TRUST', 'REVOCABLE TRUST',
+                          'IRREVOCABLE TRUST', 'TESTAMENTARY', 'ESTATE OF', 'DECEDENT'}
+
+    # Generate run_id for this execution
+    run_id = time.strftime('%Y%m%d_%H%M%S')
+
+    # 1. Read Canvas data
+    if sf_conn:
+        print('\nReading Canvas data from Snowflake IMPORT_BA_DATA...')
+        canvas_df = pd.read_sql('SELECT * FROM IMPORT_BA_DATA', sf_conn)
+        canvas_df = canvas_df.fillna('')
+        # Snowflake returns uppercase column names — normalise to match Excel expectations
+        canvas_df.columns = [c.upper() for c in canvas_df.columns]
+        print(f'Loaded {len(canvas_df):,} Canvas records from Snowflake')
+    else:
+        print(f'\nReading Canvas file: {CANVAS_FILE}')
+        canvas_df = pd.read_excel(CANVAS_FILE, dtype=str)
+        canvas_df = canvas_df.fillna('')
+        print(f'Loaded {len(canvas_df):,} Canvas records from Excel')
+
+    # 2. Load DEC records into memory dict keyed by clean SSN
+    if sf_conn:
+        print(f'\nLoading DEC records from Snowflake Enertia views...')
+        dec_by_ssn, dec_total = _load_dec_from_snowflake(sf_conn)
+    else:
+        print(f'\nLoading DEC records from local database...')
+        conn_sqlite_dec = sqlite3.connect(DB_PATH)
+        cur_dec = conn_sqlite_dec.cursor()
+        cur_dec.execute(
+            'SELECT ssn, hdrcode, hdrname, addraddress, addrcity, '
+            'addrstate, addrzipcode, addrcontact, addrsubcode FROM dec_ba_master')
+        dec_by_ssn = {}
+        dec_total = 0
+        for row in cur_dec:
+            dec_total += 1
+            ssn_clean = clean_ssn(row[0])
+            if ssn_clean:
+                if ssn_clean not in dec_by_ssn:
+                    dec_by_ssn[ssn_clean] = []
+                dec_by_ssn[ssn_clean].append({
+                    'ssn': row[0], 'hdrcode': row[1], 'hdrname': row[2],
+                    'addraddress': row[3], 'addrcity': row[4],
+                    'addrstate': row[5], 'addrzipcode': row[6],
+                    'addrcontact': row[7], 'addrsubcode': row[8],
+                })
+        conn_sqlite_dec.close()
 
     print(f'Loaded {dec_total:,} DEC records')
     dec_with_ssn = sum(len(v) for v in dec_by_ssn.values())
     print(f'DEC records with valid SSN: {dec_with_ssn:,}')
     print(f'Unique DEC SSNs: {len(dec_by_ssn):,}')
 
+    # Local SQLite for output + Google cache (always used)
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
     # 2b. Init persistent Google address cache (if enabled)
     if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
         _init_google_cache(conn)
 
     # 3. Create output table (MERGE_OUTPUT.csv format + match scores)
-    cursor.execute('DROP TABLE IF EXISTS canvas_dec_matches')
+    cursor.execute('DROP TABLE IF EXISTS import_merge_matches')
     cursor.execute("""
-        CREATE TABLE canvas_dec_matches (
+        CREATE TABLE import_merge_matches (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             -- Canvas source
             canvas_name TEXT,
@@ -1212,6 +1437,7 @@ def main():
             name_boost_source TEXT,
             address_score REAL,
             address_reason TEXT,
+            nameaddrscore REAL,
             recommendation TEXT,
             dec_match_count INTEGER,
             Number_possible_address_matches INTEGER,
@@ -1240,20 +1466,14 @@ def main():
 
     # 4. Process each Canvas record
     results = []
-    stats = {
-        'existing_ba_existing_addr': 0,
-        'existing_ba_likely_addr': 0,
-        'existing_ba_new_addr': 0,
-        'likely_new_ba': 0,
-        'new_ba': 0,
-        'no_ssn': 0,
-        'bad_ssn': 0,
-    }
+    stats = {b['stat']: 0 for b in BUCKET_RULES}
+    stats['needs_review'] = 0
+    _REC_TO_STAT = {b['name']: b['stat'] for b in BUCKET_RULES}
+    _REC_TO_STAT['NEEDS REVIEW'] = 'needs_review'
 
-    _trust_re = re.compile(
-        r'\b(TRUST|TRUSTEE|TRUSTEES|TRUSTEESHIP|TTEE|LIVING TRUST|'
-        r'FAMILY TRUST|REVOCABLE TRUST|IRREVOCABLE TRUST|'
-        r'TESTAMENTARY|ESTATE OF|DECEDENT)\b', re.IGNORECASE)
+    # Build trust regex from BA_LOOKUP keywords (longest first so multi-word phrases match)
+    _trust_pattern = '|'.join(re.escape(kw) for kw in sorted(TRUST_KEYWORDS, key=len, reverse=True))
+    _trust_re = re.compile(r'\b(' + _trust_pattern + r')\b', re.IGNORECASE)
 
     start = time.time()
     total = len(canvas_df)
@@ -1272,7 +1492,8 @@ def main():
         # Store digits-only SSN (cleaned of dashes, spaces, special chars)
         canvas_ssn_digits = re.sub(r'[^0-9]', '', str(canvas_ssn_raw)) if canvas_ssn_raw else ''
 
-        is_trust = 1 if _trust_re.search(str(canvas_name)) else 0
+        is_trust = 1 if (_trust_re.search(str(canvas_name))
+                         or _trust_re.search(str(canvas_addr))) else 0
 
         base_record = {
             'canvas_name': canvas_name,
@@ -1300,21 +1521,17 @@ def main():
         }
 
         if not canvas_ssn:
-            if canvas_ssn_raw:
-                stats['bad_ssn'] += 1
-                rec = 'NEW BA - INVALID SSN'
-            else:
-                stats['no_ssn'] += 1
-                rec = 'NEW BA - NO SSN'
+            reason = 'INVALID SSN' if canvas_ssn_raw else 'NO SSN'
+            stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
                 'dec_city': '', 'dec_state': '', 'dec_zip': '',
                 'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
-                'address_reason': 'NO SSN TO MATCH',
-                'recommendation': rec, 'dec_match_count': 0,
-            'Number_possible_address_matches': 0, 'name_boost_source': None,
+                'address_reason': reason, 'nameaddrscore': None,
+                'recommendation': 'NEW BA AND NEW ADDRESS', 'dec_match_count': 0,
+                'Number_possible_address_matches': 0, 'name_boost_source': None,
             })
             continue
 
@@ -1322,15 +1539,15 @@ def main():
         dec_matches = dec_by_ssn.get(canvas_ssn, [])
 
         if not dec_matches:
-            stats['new_ba'] += 1
+            stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
                 'dec_city': '', 'dec_state': '', 'dec_zip': '',
                 'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
-                'address_reason': 'SSN NOT FOUND IN DEC',
-                'recommendation': 'NEW BA - NO DEC MATCH',
+                'address_reason': 'SSN NOT FOUND IN DEC', 'nameaddrscore': None,
+                'recommendation': 'NEW BA AND NEW ADDRESS',
                 'dec_match_count': 0,
                 'Number_possible_address_matches': 0, 'name_boost_source': None,
             })
@@ -1417,25 +1634,24 @@ def main():
                 best_name_score = effective_score
                 best_boost_source = boost_source
 
-        # Determine recommendation
-        avg_name_addr = (best_name_score + best_addr_score) / 2
-        if avg_name_addr < 0.40:
-            # Name score 45+ with low address = same BA, new address
-            if best_name_score >= 0.45 and best_addr_score <= 0.30:
-                rec = 'EXISTING BA - NEW ADDRESS'
-                stats['existing_ba_new_addr'] += 1
-            else:
-                rec = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
-                stats['likely_new_ba'] += 1
-        elif best_addr_result['same_address']:
-            rec = 'EXISTING BA - EXISTING ADDRESS'
-            stats['existing_ba_existing_addr'] += 1
-        elif best_addr_score >= 0.75:
-            rec = 'EXISTING BA - LIKELY SAME ADDRESS'
-            stats['existing_ba_likely_addr'] += 1
-        else:
-            rec = 'EXISTING BA - NEW ADDRESS'
-            stats['existing_ba_new_addr'] += 1
+        # Classify using configurable bucket ranges
+        name_pct = round5(best_name_score * 100)
+        addr_pct = round5(best_addr_score * 100)
+        rec = _classify(name_pct, addr_pct, BUCKET_RULES)
+        stats[_REC_TO_STAT[rec]] += 1
+
+        # Composite name+address score (holistic identity similarity)
+        canvas_combo = (normalize_name(canvas_name, trust=is_trust) + ' '
+                        + normalize_address(canvas_addr, trust=is_trust) + ' '
+                        + normalize_city(canvas_city) + ' '
+                        + safe_str(canvas_state).upper().strip() + ' '
+                        + normalize_zip(canvas_zip))
+        dec_combo = (normalize_name(best_dec['hdrname']) + ' '
+                     + normalize_address(best_dec['addraddress']) + ' '
+                     + normalize_city(best_dec['addrcity']) + ' '
+                     + safe_str(best_dec['addrstate']).upper().strip() + ' '
+                     + normalize_zip(best_dec['addrzipcode']))
+        nameaddrscore = round5(jaro_winkler(canvas_combo, dec_combo) * 100)
 
         results.append({
             **base_record,
@@ -1451,13 +1667,15 @@ def main():
             'name_score': round5(best_name_score * 100),
             'address_score': round5(best_addr_score * 100),
             'address_reason': best_addr_result['reason'],
+            'nameaddrscore': nameaddrscore,
             'recommendation': rec,
             'name_boost_source': best_boost_source,
             'dec_match_count': len(dec_matches),
             'Number_possible_address_matches': possible_addr_matches,
         })
-        # Also flag as trust if DEC name matches
-        if not is_trust and _trust_re.search(str(best_dec['hdrname'])):
+        # Also flag as trust if DEC name or address matches
+        if not is_trust and (_trust_re.search(str(best_dec['hdrname']))
+                             or _trust_re.search(str(best_dec['addraddress']))):
             results[-1]['is_trust'] = 1
 
         if (idx + 1) % 5000 == 0:
@@ -1488,27 +1706,29 @@ def main():
                 r = results[idx]
                 old_rec = r['recommendation']
                 r['name_score'] = float(new_score)
-                # Re-classify recommendation with new score
-                addr_score = float(r['address_score'])
-                avg = (float(new_score) + addr_score) / 2
-                if avg < 40:
-                    if float(new_score) >= 45 and addr_score <= 30:
-                        r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
-                    else:
-                        r['recommendation'] = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
-                elif addr_score >= 90:
-                    r['recommendation'] = 'EXISTING BA - EXISTING ADDRESS'
-                elif addr_score >= 75:
-                    r['recommendation'] = 'EXISTING BA - LIKELY SAME ADDRESS'
-                else:
-                    r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                # Re-classify with new name score
+                r['recommendation'] = _classify(
+                    float(new_score), float(r['address_score']), BUCKET_RULES)
                 if r['recommendation'] != old_rec:
                     reclassified += 1
+                    stats[_REC_TO_STAT[old_rec]] -= 1
+                    stats[_REC_TO_STAT[r['recommendation']]] += 1
             print(f'  Overrode {len(overrides)} scores, '
                   f'{reclassified} reclassified')
 
     # 4c. Google Address Validation API override for ambiguous address scores
     if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
+        def _zero_score_nums_match(r):
+            """Score=0 but all address numbers and zip match → worth a Google lookup."""
+            if r['address_score'] != 0:
+                return False
+            z1, z2 = normalize_zip(r['canvas_zip']), normalize_zip(r['dec_zip'])
+            if not z1 or not z2 or z1 != z2:
+                return False
+            n1 = extract_addr_numbers(normalize_address(r['canvas_address']))
+            n2 = extract_addr_numbers(normalize_address(r['dec_address']))
+            return bool(n1) and n1 == n2
+
         ambiguous_addr = [
             (i, r['canvas_address'], r['canvas_city'], r['canvas_state'],
              r['canvas_zip'], r['canvas_id'], r['canvas_addrseq'],
@@ -1517,7 +1737,8 @@ def main():
              r['address_score'])
             for i, r in enumerate(results)
             if r['ssn_match'] == 100.0
-            and GOOGLE_ADDR_SCORE_MIN <= r['address_score'] <= GOOGLE_ADDR_SCORE_MAX
+            and (GOOGLE_ADDR_SCORE_MIN <= r['address_score'] <= GOOGLE_ADDR_SCORE_MAX
+                 or _zero_score_nums_match(r))
         ]
         if ambiguous_addr:
             print(f'\nGoogle Address API: {len(ambiguous_addr)} ambiguous address pairs...')
@@ -1567,21 +1788,13 @@ def main():
                     old_rec = r['recommendation']
                     new_addr_score = float(ov['new_score'])
                     r['address_score'] = new_addr_score
-                    name_score = float(r['name_score'])
-                    avg = (name_score + new_addr_score) / 2
-                    if avg < 40:
-                        if name_score >= 45 and new_addr_score <= 30:
-                            r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
-                        else:
-                            r['recommendation'] = 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH'
-                    elif ov['same_address'] or new_addr_score >= 90:
-                        r['recommendation'] = 'EXISTING BA - EXISTING ADDRESS'
-                    elif new_addr_score >= 75:
-                        r['recommendation'] = 'EXISTING BA - LIKELY SAME ADDRESS'
-                    else:
-                        r['recommendation'] = 'EXISTING BA - NEW ADDRESS'
+                    # Re-classify with new address score
+                    r['recommendation'] = _classify(
+                        float(r['name_score']), new_addr_score, BUCKET_RULES)
                     if r['recommendation'] != old_rec:
                         reclassified += 1
+                        stats[_REC_TO_STAT[old_rec]] -= 1
+                        stats[_REC_TO_STAT[r['recommendation']]] += 1
 
             print(f'  Validated {len(addr_overrides)} pairs, '
                   f'{score_overrides} scores overridden, '
@@ -1590,13 +1803,13 @@ def main():
         print('\nGoogle Address API enabled but GOOGLE_API_KEY not set — skipping.')
 
     # 5. Insert results into database
-    print(f'\nWriting {len(results):,} results to canvas_dec_matches table...')
+    print(f'\nWriting {len(results):,} results to import_merge_matches table...')
     results_df = pd.DataFrame(results)
 
     # Ensure column order matches table schema
     col_order = [
         'ssn_match', 'name_score', 'name_boost_source', 'address_score', 'address_reason',
-        'recommendation',
+        'nameaddrscore', 'recommendation',
         'canvas_name', 'canvas_address', 'canvas_city', 'canvas_state',
         'canvas_zip', 'canvas_addrseq', 'canvas_id', 'canvas_ssn',
         # Google lookup - Canvas
@@ -1616,20 +1829,26 @@ def main():
     ]
     results_df = results_df[col_order]
     results_df = results_df.sort_values('recommendation').reset_index(drop=True)
-    results_df.to_sql('canvas_dec_matches', conn, if_exists='append',
+    results_df.to_sql('import_merge_matches', conn, if_exists='append',
                       index=False)
 
     # Create indexes for fast lookups
     print('Creating indexes...')
     cursor.execute(
-        'CREATE INDEX idx_cdm_ssn ON canvas_dec_matches(canvas_ssn)')
+        'CREATE INDEX IF NOT EXISTS idx_cdm_ssn ON import_merge_matches(canvas_ssn)')
     cursor.execute(
-        'CREATE INDEX idx_cdm_rec ON canvas_dec_matches(recommendation)')
+        'CREATE INDEX IF NOT EXISTS idx_cdm_rec ON import_merge_matches(recommendation)')
     cursor.execute(
-        'CREATE INDEX idx_cdm_ssn_match ON canvas_dec_matches(ssn_match)')
+        'CREATE INDEX IF NOT EXISTS idx_cdm_ssn_match ON import_merge_matches(ssn_match)')
     cursor.execute(
-        'CREATE INDEX idx_cdm_addr_score ON canvas_dec_matches(address_score)')
+        'CREATE INDEX IF NOT EXISTS idx_cdm_addr_score ON import_merge_matches(address_score)')
     conn.commit()
+
+    # 5b. Write results to Snowflake (if connected)
+    if sf_conn:
+        print('\nWriting results to Snowflake...')
+        nrows = _write_results_to_snowflake(results_df, sf_conn, run_id)
+        print(f'  Wrote {nrows} rows to Snowflake IMPORT_MERGE_MATCHES')
 
     # 6. Print summary
     print(f'\n{"=" * 80}')
@@ -1637,52 +1856,52 @@ def main():
     print('=' * 80)
     print(f'Total Canvas records:              {total:,}')
     print(f'')
-    print(f'EXISTING BA - EXISTING ADDRESS:    '
-          f'{stats["existing_ba_existing_addr"]:,}')
-    print(f'EXISTING BA - LIKELY SAME ADDRESS: '
-          f'{stats["existing_ba_likely_addr"]:,}')
-    print(f'EXISTING BA - NEW ADDRESS:         '
-          f'{stats["existing_ba_new_addr"]:,}')
-    print(f'LIKELY NEW BA - NAME MISMATCH:     '
-          f'{stats["likely_new_ba"]:,}')
-    print(f'NEW BA - NO DEC MATCH:             {stats["new_ba"]:,}')
-    print(f'NEW BA - NO SSN:                   {stats["no_ssn"]:,}')
-    print(f'NEW BA - INVALID SSN:              {stats["bad_ssn"]:,}')
+    print(f'NEW BA AND NEW ADDRESS:            {stats["new_ba_new_addr"]:,}')
+    print(f'EXISTING BA ADD NEW ADDRESS:       {stats["existing_ba_new_addr"]:,}')
+    print(f'EXISTING BA AND EXISTING ADDRESS:  {stats["existing_ba_existing_addr"]:,}')
+    print(f'NEEDS REVIEW:                      {stats["needs_review"]:,}')
     print(f'')
-    total_existing = (stats['existing_ba_existing_addr'] +
-                      stats['existing_ba_likely_addr'] +
-                      stats['existing_ba_new_addr'])
-    total_new = (stats['new_ba'] + stats['no_ssn'] + stats['bad_ssn'] +
-                 stats['likely_new_ba'])
-    print(f'Total existing BAs (SSN matched):  {total_existing:,}')
-    print(f'Total new BAs (no SSN match):      {total_new:,}')
+    total_matched = (stats['existing_ba_new_addr']
+                     + stats['existing_ba_existing_addr']
+                     + stats['needs_review'])
+    print(f'Total SSN matched:                 {total_matched:,}')
+    print(f'Total new BAs:                     {stats["new_ba_new_addr"]:,}')
     print(f'')
-    print(f'Results table: canvas_dec_matches')
+    print('Bucket ranges (name_min-max / addr_min-max):')
+    for b in BUCKET_RULES:
+        print(f'  {b["name"]}: name {b["name_min"]}-{b["name_max"]}'
+              f' / addr {b["addr_min"]}-{b["addr_max"]}')
+    print(f'Results table: import_merge_matches')
     print(f'Database: {DB_PATH}')
     print(f'')
     print('Query examples:')
-    print('  -- All existing BAs with exact address match')
-    print('  SELECT * FROM canvas_dec_matches '
-          'WHERE recommendation = "EXISTING BA - EXISTING ADDRESS";')
-    print('')
-    print('  -- BAs needing address review')
-    print('  SELECT * FROM canvas_dec_matches '
-          'WHERE recommendation = "EXISTING BA - LIKELY SAME ADDRESS";')
+    print('  -- Existing BA with existing address')
+    print('  SELECT * FROM import_merge_matches '
+          'WHERE recommendation = "EXISTING BA AND EXISTING ADDRESS";')
     print('')
     print('  -- All new BAs')
-    print('  SELECT * FROM canvas_dec_matches '
-          'WHERE ssn_match = 0;')
+    print('  SELECT * FROM import_merge_matches '
+          'WHERE recommendation = "NEW BA AND NEW ADDRESS";')
+    print('')
+    print('  -- Everything needing review')
+    print('  SELECT * FROM import_merge_matches '
+          'WHERE recommendation = "NEEDS REVIEW";')
     print('')
     print('  -- Summary by recommendation')
     print('  SELECT recommendation, COUNT(*) as cnt '
-          'FROM canvas_dec_matches GROUP BY recommendation;')
+          'FROM import_merge_matches GROUP BY recommendation;')
     print('=' * 80)
 
     # 7. Export to Excel with color-coded headers
-    excel_path = 'output/canvas_dec_matches.xlsx'
+    excel_path = 'output/import_merge_matches.xlsx'
+    os.makedirs('output', exist_ok=True)
     print(f'\nExporting to {excel_path}...')
-    export_df = pd.read_sql('SELECT * FROM canvas_dec_matches', conn)
+    export_df = pd.read_sql('SELECT * FROM import_merge_matches', conn)
     export_df.drop(columns=['id', 'created_at'], inplace=True, errors='ignore')
+    # Strip control characters that openpyxl rejects
+    for col in export_df.select_dtypes(include='object').columns:
+        export_df[col] = export_df[col].apply(
+            lambda x: re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(x)) if pd.notna(x) else x)
 
     # Reorder columns: scores/recommendation first
     export_df = export_df[col_order]
@@ -1769,43 +1988,25 @@ def main():
         add_blank()
 
         # --- Recommendation Breakdown ---
-        add('EXISTING BA - EXISTING ADDRESS',
-            len(df[df['recommendation'] == 'EXISTING BA - EXISTING ADDRESS']),
+        add('NEW BA AND NEW ADDRESS',
+            len(df[df['recommendation'] == 'NEW BA AND NEW ADDRESS']),
             'BY RECOMMENDATION')
-        add('EXISTING BA - LIKELY SAME ADDRESS',
-            len(df[df['recommendation'] == 'EXISTING BA - LIKELY SAME ADDRESS']))
-        add('EXISTING BA - NEW ADDRESS',
-            len(df[df['recommendation'] == 'EXISTING BA - NEW ADDRESS']))
-        add('LIKELY BA MATCH - SSN MATCH NAME MISMATCH',
-            len(df[df['recommendation'] == 'LIKELY BA MATCH - SSN MATCH NAME MISMATCH']))
-        add('NEW BA - NO DEC MATCH',
-            len(df[df['recommendation'] == 'NEW BA - NO DEC MATCH']))
-        add('NEW BA - NO SSN',
-            len(df[df['recommendation'] == 'NEW BA - NO SSN']))
-        add('NEW BA - INVALID SSN',
-            len(df[df['recommendation'] == 'NEW BA - INVALID SSN']))
+        add('EXISTING BA ADD NEW ADDRESS',
+            len(df[df['recommendation'] == 'EXISTING BA ADD NEW ADDRESS']))
+        add('EXISTING BA AND EXISTING ADDRESS',
+            len(df[df['recommendation'] == 'EXISTING BA AND EXISTING ADDRESS']))
+        add('NEEDS REVIEW',
+            len(df[df['recommendation'] == 'NEEDS REVIEW']))
         add_blank()
 
-        # --- Auto-Add Candidates ---
-        auto_add = ssn_matched[ssn_matched['name_score'] >= 90]
-        auto_add_high = ssn_matched[ssn_matched['name_score'] >= 95]
-        add('SSN Match + Name >= 95% (High Confidence)', len(auto_add_high),
-            'AUTO-ADD CANDIDATES')
-        add('SSN Match + Name >= 90% (Moderate Confidence)', len(auto_add))
-        add('SSN Match + Name < 90% (Needs Review)',
-            len(ssn_matched[ssn_matched['name_score'] < 90]))
-        add_blank()
-
-        # --- Address Actions ---
-        exact_addr = df[df['recommendation'] == 'EXISTING BA - EXISTING ADDRESS']
-        likely_addr = df[df['recommendation'] == 'EXISTING BA - LIKELY SAME ADDRESS']
-        new_addr = df[df['recommendation'] == 'EXISTING BA - NEW ADDRESS']
-        add('Addresses Confirmed (Exact Match)', len(exact_addr),
-            'ADDRESS ACTIONS')
-        add('Addresses to Review (Likely Same)', len(likely_addr))
-        add('New Addresses to Add', len(new_addr))
-        add('Pct of Existing BAs Needing New Address',
-            f"{len(new_addr) / max(len(ssn_matched), 1) * 100:.1f}%")
+        # --- Bucket Ranges ---
+        for b in BUCKET_RULES:
+            add(f'{b["name"]}: name {b["name_min"]}-{b["name_max"]}'
+                f' / addr {b["addr_min"]}-{b["addr_max"]}',
+                len(df[df['recommendation'] == b['name']]),
+                'BUCKET RANGES' if b == BUCKET_RULES[0] else '')
+        add('NEEDS REVIEW (fallback)',
+            len(df[df['recommendation'] == 'NEEDS REVIEW']))
         add_blank()
 
         # --- Name Boost ---
@@ -1961,6 +2162,10 @@ def main():
     print('=' * 80)
 
     conn.close()
+
+    if sf_conn:
+        sf_conn.close()
+        print('Snowflake connection closed.')
 
 
 if __name__ == '__main__':
