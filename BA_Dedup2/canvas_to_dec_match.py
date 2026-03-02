@@ -319,15 +319,22 @@ def enhanced_token_overlap(tokens1, tokens2):
 
 # ===== Normalization functions =====
 
-def normalize_name(name, trust: bool = False) -> str:
+def normalize_name(name, trust: bool = False, detail: list | None = None) -> str:
     name = safe_str(name)
     if not name:
+        if detail is not None:
+            detail.append("EMPTY_INPUT")
         return ""
     if trust:
+        if detail is not None:
+            detail.append("TRUST_MODE: uppercase only")
         return re.sub(r"\s+", " ", name.upper()).strip()
     # Replace word-separating chars with space, strip all other specials
+    before = name
     name = re.sub(r"[/&]", " ", name)
     name = re.sub(r"[^A-Za-z0-9\s]", "", name)
+    if detail is not None and name != before:
+        detail.append(f"[clean] {before.strip()}→{name.strip()}")
     suffix_map = {
         # Business name aliases (multi-word first)
         r"FEDERAL\s+EXPRESS": "FEDEX",
@@ -357,14 +364,24 @@ def normalize_name(name, trust: bool = False) -> str:
         r"L\s*L\s*C": "LLC", r"L\s*C": "LC", r"L\s*P": "LP",
     }
     for pat, repl in suffix_map.items():
+        before = name
         name = re.sub(r"\b" + pat + r"\b", repl, name, flags=re.IGNORECASE)
+        if detail is not None and name != before:
+            matched = re.search(r"\b" + pat + r"\b", before, flags=re.IGNORECASE)
+            detail.append(f"{matched.group() if matched else pat}→{repl}")
     # Split concatenated Roman numerals: PDIII → PD III
+    before = name
     name = re.sub(r"([A-Za-z]{2,})(III|IV|II)", r"\1 \2", name)
+    if detail is not None and name != before:
+        detail.append(f"[roman_split] {before.strip()}→{name.strip()}")
     name = re.sub(r"\s+", " ", name.upper()).strip()
     # Collapse runs of consecutive single letters: "J V S LLC" → "JVS LLC"
     def _collapse_singles(m):
         return m.group(0).replace(" ", "")
+    before = name
     name = re.sub(r"\b[A-Z](?:\s[A-Z]){1,}\b", _collapse_singles, name)
+    if detail is not None and name != before:
+        detail.append(f"[collapse] {before}→{name}")
     return name
 
 
@@ -384,16 +401,21 @@ _DATE_RE = re.compile(
 )
 
 
-def normalize_address(addr, trust: bool = False) -> str:
+def normalize_address(addr, trust: bool = False, detail: list | None = None) -> str:
     addr = safe_str(addr)
     if not addr:
+        if detail is not None:
+            detail.append("EMPTY_INPUT")
         return ""
     if trust:
+        if detail is not None:
+            detail.append("TRUST_MODE: uppercase only")
         return re.sub(r"\s+", " ", addr.upper()).strip()
     addr = addr.upper()
 
     # Strip "DATED <date>" patterns from address text (conservative — month names only,
     # NOT standalone 4-digit numbers which could be house numbers like 1950, 2000)
+    before = addr
     addr = re.sub(r'\b(?:DATED|DTD)\s+', '', addr)
     addr = re.sub(
         r'\b' + _MONTH_NAMES + r'[\s,]+\d{1,2}[\s,]+\d{2,4}\b'
@@ -405,6 +427,8 @@ def normalize_address(addr, trust: bool = False) -> str:
     # Strip numeric dates (MM/DD/YYYY, MM-DD-YYYY, etc.) that survived month-name check
     addr = re.sub(r'\b\d{1,2}[/\-]\d{1,2}[/\-]\d{2,4}\b', ' ', addr)
     addr = re.sub(r'\s+', ' ', addr).strip()
+    if detail is not None and addr != before.upper().strip():
+        detail.append(f"[date_strip] {before.strip()}→{addr}")
 
     # STRICT: Treat as PO Box ONLY if entire line is exactly "BOX <num/wordnum>"
     m = re.fullmatch(
@@ -412,33 +436,48 @@ def normalize_address(addr, trust: bool = False) -> str:
     if m:
         tok = m.group(1).upper()
         tok = WORD_NUM.get(tok, tok)
+        before = addr
         addr = f"PO BOX {tok}"
+        if detail is not None:
+            detail.append(f"[box_strict] {before}→{addr}")
 
     # Explicit PO patterns only
+    before = addr
     addr = re.sub(r"\bPOST\s*OFFICE\s*BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bP\.?\s*O\.?\s*BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bP\.?\s*O\.?\s*B\b", "PO BOX", addr)
     addr = re.sub(r"\bPOB\b", "PO BOX", addr)
     addr = re.sub(r"\bPOP\s+BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bPO\s+BOX\s*#", "PO BOX ", addr)
+    if detail is not None and addr != before:
+        detail.append(f"[pobox] {before}→{addr}")
 
     # Normalize word numbers in PO BOX addresses
     po_match = re.search(
         r"\bPO\s*BOX\s+(ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN)\b", addr)
     if po_match:
         word = po_match.group(1)
+        before = addr
         addr = addr.replace(f"PO BOX {word}", f"PO BOX {WORD_NUM[word]}")
+        if detail is not None:
+            detail.append(f"PO BOX {word}→PO BOX {WORD_NUM[word]}")
 
     # Normalize COUNTY ROAD -> CR before street types (so ROAD doesn't get hit first)
+    before = addr
     addr = re.sub(r"\bCOUNTY\s+ROAD\b", "CR", addr)
     addr = re.sub(r"\bCOUNTY\s+RD\b", "CR", addr)
+    if detail is not None and addr != before:
+        detail.append("COUNTY ROAD→CR")
 
     for full, abbr in [
         ("NORTHEAST", "NE"), ("NORTHWEST", "NW"),
         ("SOUTHEAST", "SE"), ("SOUTHWEST", "SW"),
         ("NORTH", "N"), ("SOUTH", "S"), ("EAST", "E"), ("WEST", "W"),
     ]:
+        before = addr
         addr = re.sub(r"\b" + full + r"\b", abbr, addr)
+        if detail is not None and addr != before:
+            detail.append(f"{full}→{abbr}")
 
     for full, abbr in [
         ("STREET", "ST"), ("AVENUE", "AVE"), ("BOULEVARD", "BLVD"),
@@ -447,16 +486,25 @@ def normalize_address(addr, trust: bool = False) -> str:
         ("HIGHWAY", "HWY"), ("PARKWAY", "PKWY"),
         ("TERRACE", "TER"), ("TRAIL", "TRL"),
     ]:
+        before = addr
         addr = re.sub(r"\b" + full + r"\b", abbr, addr)
+        if detail is not None and addr != before:
+            detail.append(f"{full}→{abbr}")
 
     for full, abbr in [
         ("APARTMENT", "APT"), ("SUITE", "STE"),
         ("BUILDING", "BLDG"), ("FLOOR", "FL"), ("ROOM", "RM"),
         (r"#\s*(\d+)", r"APT \1"),
     ]:
+        before = addr
         addr = re.sub(r"\b" + full + r"\b", abbr, addr)
+        if detail is not None and addr != before:
+            detail.append(f"{full}→{abbr}")
 
+    before = addr
     addr = re.sub(r"[.,\-]", "", addr)
+    if detail is not None and addr != before:
+        detail.append(f"[punct] {before}→{addr}")
 
     # Strip leading non-address text (names, ATTN, C/O, titles, etc.)
     # Only for addresses that don't start with a digit and aren't PO Boxes.
@@ -466,10 +514,13 @@ def normalize_address(addr, trust: bool = False) -> str:
                               'APT', 'STE', 'UNIT', 'BLDG', 'FL', 'RM'}
         m = re.search(r'\b(\d+)\s+[A-Z]', addr)
         if m:
-            before = addr[:m.start()].strip()
-            last_word = before.split()[-1] if before.split() else ''
+            before_text = addr[:m.start()].strip()
+            last_word = before_text.split()[-1] if before_text.split() else ''
             if last_word not in _ADDR_START_TOKENS:
+                before = addr
                 addr = addr[m.start():]
+                if detail is not None:
+                    detail.append(f"[strip_lead] {before}→{addr}")
 
     return re.sub(r"\s+", " ", addr).strip()
 
@@ -535,35 +586,78 @@ def extract_addr_numbers(addr_norm: str) -> set:
 
 # ===== Comparison functions =====
 
-def name_compare(name1: str, name2: str) -> dict:
-    n1 = normalize_name(name1)
-    n2 = normalize_name(name2)
+def name_compare(name1: str, name2: str, collect_detail: bool = False) -> dict:
+    n1_detail = [] if collect_detail else None
+    n2_detail = [] if collect_detail else None
+    match_detail = [] if collect_detail else None
+
+    n1 = normalize_name(name1, detail=n1_detail)
+    n2 = normalize_name(name2, detail=n2_detail)
     if not n1 or not n2:
-        return {"name_score": 0.0, "name_match": False}
+        result = {"name_score": 0.0, "name_match": False}
+        if collect_detail:
+            if match_detail is not None:
+                match_detail.append("empty_input")
+            result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+        return result
     if n1 == n2:
-        return {"name_score": 1.0, "name_match": True}
+        result = {"name_score": 1.0, "name_match": True}
+        if collect_detail:
+            if match_detail is not None:
+                match_detail.append("exact_post_norm")
+            result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+        return result
 
     # Strip personal name suffixes (safe: SSN already matched)
     t1_raw = [t for t in n1.split() if t not in NAME_SUFFIXES]
     t2_raw = [t for t in n2.split() if t not in NAME_SUFFIXES]
     if not t1_raw or not t2_raw:
         t1_raw, t2_raw = n1.split(), n2.split()
+    elif match_detail is not None:
+        stripped1 = [t for t in n1.split() if t in NAME_SUFFIXES]
+        stripped2 = [t for t in n2.split() if t in NAME_SUFFIXES]
+        if stripped1 or stripped2:
+            match_detail.append(f"strip_suffix: {', '.join(stripped1 + stripped2)}")
 
     # Acronym detection BEFORE business suffix stripping
     # e.g. CSC = CORP SERVICE CO (C-S-C)
     if len(t1_raw) == 1 and len(t1_raw[0]) > 1 and len(t2_raw) >= 2:
         acr = t1_raw[0]
         if len(acr) == len(t2_raw) and all(a == w[0] for a, w in zip(acr, t2_raw)):
-            return {"name_score": 0.95, "name_match": True}
+            result = {"name_score": 0.95, "name_match": True}
+            if match_detail is not None:
+                match_detail.append(f"acronym: {acr}={' '.join(t2_raw)}→95")
+                result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+            return result
     if len(t2_raw) == 1 and len(t2_raw[0]) > 1 and len(t1_raw) >= 2:
         acr = t2_raw[0]
         if len(acr) == len(t1_raw) and all(a == w[0] for a, w in zip(acr, t1_raw)):
-            return {"name_score": 0.95, "name_match": True}
+            result = {"name_score": 0.95, "name_match": True}
+            if match_detail is not None:
+                match_detail.append(f"acronym: {acr}={' '.join(t1_raw)}→95")
+                result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+            return result
 
     # Strip business suffixes/descriptors, remove AND, canonicalize nicknames/numbers
     STRIP = BUSINESS_SUFFIXES | BUSINESS_DESCRIPTORS | INDUSTRY_TERMS | {'AND', 'THE'}
-    t1 = [canonicalize_token(t) for t in t1_raw if t not in STRIP]
-    t2 = [canonicalize_token(t) for t in t2_raw if t not in STRIP]
+    t1 = []
+    for t in t1_raw:
+        if t not in STRIP:
+            ct = canonicalize_token(t)
+            if match_detail is not None and ct != t:
+                match_detail.append(f"canon: {t}→{ct}")
+            t1.append(ct)
+        elif match_detail is not None:
+            match_detail.append(f"strip_biz: {t}")
+    t2 = []
+    for t in t2_raw:
+        if t not in STRIP:
+            ct = canonicalize_token(t)
+            if match_detail is not None and ct != t:
+                match_detail.append(f"canon: {t}→{ct}")
+            t2.append(ct)
+        elif match_detail is not None:
+            match_detail.append(f"strip_biz: {t}")
     if not t1 or not t2:
         t1 = [canonicalize_token(t) for t in t1_raw]
         t2 = [canonicalize_token(t) for t in t2_raw]
@@ -572,14 +666,26 @@ def name_compare(name1: str, name2: str) -> dict:
     c2 = " ".join(t2)
 
     if c1 == c2:
-        return {"name_score": 1.0, "name_match": True}
+        result = {"name_score": 1.0, "name_match": True}
+        if match_detail is not None:
+            match_detail.append("exact_post_strip")
+            result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+        return result
 
     # Initial-match check (J SMITH vs JOHN SMITH)
     if len(t1) >= 2 and len(t2) >= 2 and t1[-1] == t2[-1]:
         if len(t1[0]) == 1 and len(t2[0]) > 1 and t1[0] == t2[0][0]:
-            return {"name_score": 0.95, "name_match": True}
+            result = {"name_score": 0.95, "name_match": True}
+            if match_detail is not None:
+                match_detail.append(f"initial: {t1[0]}={t2[0]}→95")
+                result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+            return result
         if len(t2[0]) == 1 and len(t1[0]) > 1 and t2[0] == t1[0][0]:
-            return {"name_score": 0.95, "name_match": True}
+            result = {"name_score": 0.95, "name_match": True}
+            if match_detail is not None:
+                match_detail.append(f"initial: {t2[0]}={t1[0]}→95")
+                result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+            return result
 
     # Character-level similarities (multiple strategies)
     direct_jw = jaro_winkler(c1, c2)
@@ -593,6 +699,7 @@ def name_compare(name1: str, name2: str) -> dict:
 
         # Bookend bonus: if first AND last tokens match, middle name
         # differences shouldn't tank the score (SSN already matched)
+        bookend = False
         if len(t1) >= 2 and len(t2) >= 2:
             first_match = (t1[0] == t2[0]
                            or (len(t1[0]) == 1 and len(t2[0]) > 1 and t1[0] == t2[0][0])
@@ -601,16 +708,46 @@ def name_compare(name1: str, name2: str) -> dict:
             last_match = t1[-1] == t2[-1]
             if first_match and last_match:
                 overlap_coeff = max(overlap_coeff, 0.9)
+                bookend = True
 
         score = best_jw * (0.3 + 0.7 * overlap_coeff)
+        if match_detail is not None:
+            match_detail.append(f"jw={best_jw:.3f} (d={direct_jw:.3f}/s={sorted_jw:.3f}/c={compact_jw:.3f})")
+            match_detail.append(f"overlap={overlap_coeff:.3f}")
+            if bookend:
+                match_detail.append("bookend_bonus")
     else:
         score = best_jw
+        if match_detail is not None:
+            match_detail.append(f"jw={best_jw:.3f} (d={direct_jw:.3f}/s={sorted_jw:.3f}/c={compact_jw:.3f})")
 
     # Compact similarity floor: handles compound words and concatenated initials
     if compact_jw >= 0.95:
+        old_score = score
         score = max(score, compact_jw)
+        if match_detail is not None and score != old_score:
+            match_detail.append(f"compact_floor: {compact_jw:.3f}")
 
-    return {"name_score": score, "name_match": score >= 0.85}
+    if match_detail is not None:
+        match_detail.append(f"score={score:.3f}")
+
+    result = {"name_score": score, "name_match": score >= 0.85}
+    if collect_detail:
+        result.update(_build_name_detail(n1_detail, n2_detail, match_detail))
+    return result
+
+
+def _build_name_detail(n1_detail, n2_detail, match_detail):
+    """Build the name detail strings from collected lists."""
+    norm_parts = []
+    if n1_detail:
+        norm_parts.append(f"canvas: {'; '.join(n1_detail)}")
+    if n2_detail:
+        norm_parts.append(f"dec: {'; '.join(n2_detail)}")
+    return {
+        'name_norm_detail': ' | '.join(norm_parts) if norm_parts else '',
+        'name_match_detail': '; '.join(match_detail) if match_detail else '',
+    }
 
 
 # Regex for extracting names from address fields (C/O, ATTN patterns)
@@ -642,31 +779,51 @@ def extract_names_from_address(addr: str) -> list:
     return names
 
 
-def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
-    addr1_norm = normalize_address(addr1)
-    addr2_norm = normalize_address(addr2)
+def address_compare(addr1, city1, zip1, addr2, city2, zip2,
+                    collect_detail: bool = False) -> dict:
+    a1_detail = [] if collect_detail else None
+    a2_detail = [] if collect_detail else None
+    match_detail = [] if collect_detail else None
+
+    addr1_norm = normalize_address(addr1, detail=a1_detail)
+    addr2_norm = normalize_address(addr2, detail=a2_detail)
     zip1 = normalize_zip(zip1)
     zip2 = normalize_zip(zip2)
 
+    def _finalize(result):
+        if collect_detail:
+            result.update(_build_addr_detail(a1_detail, a2_detail, match_detail))
+        return result
+
     # Both empty
     if not addr1_norm and not addr2_norm:
-        return {"same_address": False, "score": 0.0, "reason": "BOTH_EMPTY"}
+        if match_detail is not None:
+            match_detail.append("BOTH_EMPTY")
+        return _finalize({"same_address": False, "score": 0.0, "reason": "BOTH_EMPTY"})
     if not addr1_norm or not addr2_norm:
-        return {"same_address": False, "score": 0.0, "reason": "ONE_EMPTY"}
+        if match_detail is not None:
+            match_detail.append("ONE_EMPTY")
+        return _finalize({"same_address": False, "score": 0.0, "reason": "ONE_EMPTY"})
 
     is_pobox1 = bool(POBOX_CANON_RE.search(addr1_norm))
     is_pobox2 = bool(POBOX_CANON_RE.search(addr2_norm))
 
     if is_pobox1 or is_pobox2:
         if not (is_pobox1 and is_pobox2):
-            return {"same_address": False, "score": 0.0, "reason": "POBOX_VS_STREET"}
+            if match_detail is not None:
+                match_detail.append("pobox_vs_street")
+            return _finalize({"same_address": False, "score": 0.0, "reason": "POBOX_VS_STREET"})
         box1 = parse_po_box_number(addr1_norm)
         box2 = parse_po_box_number(addr2_norm)
         if not box1 or not box2:
-            return {"same_address": False, "score": 0.0, "reason": "POBOX_MISSING_NUM"}
+            if match_detail is not None:
+                match_detail.append(f"pobox: box1={box1} box2={box2} MISSING_NUM")
+            return _finalize({"same_address": False, "score": 0.0, "reason": "POBOX_MISSING_NUM"})
         if box1 != box2:
-            return {"same_address": False, "score": 0.0,
-                    "reason": f"POBOX_NUM_MISMATCH {box1}!={box2}"}
+            if match_detail is not None:
+                match_detail.append(f"pobox: {box1}!={box2}")
+            return _finalize({"same_address": False, "score": 0.0,
+                    "reason": f"POBOX_NUM_MISMATCH {box1}!={box2}"})
 
         city1_norm = normalize_city(city1)
         city2_norm = normalize_city(city2)
@@ -681,8 +838,10 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
                              zip1 == zip2) else 0.0
         score = min(1.0, 0.92 * city_sim + zip_bonus)
         same = score >= 0.90 and city_sim >= 0.85
-        return {"same_address": same, "score": score,
-                "reason": f"POBOX_MATCH box={box1} city_sim={city_sim:.2f}"}
+        if match_detail is not None:
+            match_detail.append(f"pobox: box={box1} MATCH; city_sim={city_sim:.2f}; zip_bonus={zip_bonus:.2f}; score={score:.3f}")
+        return _finalize({"same_address": same, "score": score,
+                "reason": f"POBOX_MATCH box={box1} city_sim={city_sim:.2f}"})
 
     # Street address comparison
     num1 = parse_house_number(addr1_norm)
@@ -726,20 +885,34 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
 
         same = (addr_sim >= 0.90 and city_sim >= 0.85 and not nums_mismatch) or \
                (nums_all_match and zip_match and city_sim >= 0.85)
-        return {
+        if match_detail is not None:
+            parts = [f"non_standard: addr_sim={addr_sim:.2f}; city_sim={city_sim:.2f}; zip_match={bool(zip_match)}"]
+            if nums_mismatch:
+                parts.append("nums_mismatch: -0.10")
+            if zip_penalty:
+                parts.append("zip_penalty: -0.20")
+            if nums_all_match and zip_match:
+                parts.append("nums_all_match+zip: +0.50")
+            parts.append(f"score={score:.3f}")
+            match_detail.extend(parts)
+        return _finalize({
             "same_address": same, "score": score,
             "reason": f"NON_STANDARD addr_sim={addr_sim:.2f} "
                       f"city_sim={city_sim:.2f} zip_match={zip_match}"
                       f" nums_mismatch={nums_mismatch}"
                       f" zip_penalty={zip_penalty}"
-        }
+        })
 
     if not num1 or not num2:
-        return {"same_address": False, "score": 0.0,
-                "reason": "MISSING_HOUSE_NUMBER"}
+        if match_detail is not None:
+            match_detail.append(f"house_num: {num1 or 'None'} vs {num2 or 'None'} MISSING")
+        return _finalize({"same_address": False, "score": 0.0,
+                "reason": "MISSING_HOUSE_NUMBER"})
     if num1 != num2:
-        return {"same_address": False, "score": 0.0,
-                "reason": f"HOUSE_NUM_MISMATCH {num1}!={num2}"}
+        if match_detail is not None:
+            match_detail.append(f"house_num: {num1}!={num2}")
+        return _finalize({"same_address": False, "score": 0.0,
+                "reason": f"HOUSE_NUM_MISMATCH {num1}!={num2}"})
 
     core1 = street_core_for_match(addr1_norm)
     core2 = street_core_for_match(addr2_norm)
@@ -773,11 +946,33 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2) -> dict:
     if not zip_ok:
         score *= 0.75
 
-    return {
+    if match_detail is not None:
+        parts = [f"street: '{core1}' vs '{core2}' sim={street_sim:.2f}; city_sim={city_sim:.2f}; zip_ok={zip_ok}"]
+        if zip_match and score >= 0.85:
+            parts.append("zip_bonus: +0.05")
+        if not zip_ok:
+            parts.append("zip_penalty: x0.75")
+        parts.append(f"score={score:.3f}")
+        match_detail.extend(parts)
+
+    return _finalize({
         "same_address": same,
         "score": score,
         "reason": f"STREET num={num1} street_sim={street_sim:.2f} "
                   f"city_sim={city_sim:.2f} zip_ok={zip_ok}"
+    })
+
+
+def _build_addr_detail(a1_detail, a2_detail, match_detail):
+    """Build the address detail strings from collected lists."""
+    norm_parts = []
+    if a1_detail:
+        norm_parts.append(f"canvas: {'; '.join(a1_detail)}")
+    if a2_detail:
+        norm_parts.append(f"dec: {'; '.join(a2_detail)}")
+    return {
+        'addr_norm_detail': ' | '.join(norm_parts) if norm_parts else '',
+        'addr_match_detail': '; '.join(match_detail) if match_detail else '',
     }
 
 
@@ -1228,6 +1423,14 @@ def _write_results_to_snowflake(results_df, sf_conn, run_id):
             cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN NAMEADDRSCORE FLOAT")
         except Exception:
             pass  # column already exists
+    # Ensure detail/audit columns exist
+    for col in ('NAME_NORMAL_DETAIL', 'ADDRESS_NORMAL_DETAIL',
+                'NAME_MATCH_DETAIL', 'ADDR_MATCH_DETAIL'):
+        for tbl in ('IMPORT_MERGE_MATCHES', 'IMPORT_MERGE_MATCHES_ARCHIVE'):
+            try:
+                cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN {col} VARCHAR")
+            except Exception:
+                pass  # column already exists
     # Archive current results before truncating
     cur.execute("""
         INSERT INTO BA_PROCESS.IMPORT_MERGE_MATCHES_ARCHIVE
@@ -1460,6 +1663,11 @@ def main():
             jib INTEGER,
             rev INTEGER,
             vendor INTEGER,
+            -- Detail/audit columns
+            name_normal_detail TEXT,
+            address_normal_detail TEXT,
+            name_match_detail TEXT,
+            addr_match_detail TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -1532,6 +1740,8 @@ def main():
                 'address_reason': reason, 'nameaddrscore': None,
                 'recommendation': 'NEW BA AND NEW ADDRESS', 'dec_match_count': 0,
                 'Number_possible_address_matches': 0, 'name_boost_source': None,
+                'name_normal_detail': '', 'address_normal_detail': '',
+                'name_match_detail': '', 'addr_match_detail': '',
             })
             continue
 
@@ -1550,6 +1760,8 @@ def main():
                 'recommendation': 'NEW BA AND NEW ADDRESS',
                 'dec_match_count': 0,
                 'Number_possible_address_matches': 0, 'name_boost_source': None,
+                'name_normal_detail': '', 'address_normal_detail': '',
+                'name_match_detail': '', 'addr_match_detail': '',
             })
             continue
 
@@ -1558,6 +1770,7 @@ def main():
         best_addr_score = -1
         best_dec = None
         best_addr_result = None
+        best_name_result = None
         best_name_score = 0.0
         best_boost_source = None
         possible_addr_matches = 0
@@ -1568,8 +1781,10 @@ def main():
         for dec in dec_matches:
             addr_result = address_compare(
                 canvas_addr, canvas_city, canvas_zip,
-                dec['addraddress'], dec['addrcity'], dec['addrzipcode'])
-            name_result = name_compare(canvas_name, dec['hdrname'])
+                dec['addraddress'], dec['addrcity'], dec['addrzipcode'],
+                collect_detail=True)
+            name_result = name_compare(canvas_name, dec['hdrname'],
+                                       collect_detail=True)
             primary_score = name_result['name_score']
 
             # --- Supplementary name comparisons (boost only) ---
@@ -1631,6 +1846,7 @@ def main():
                 best_addr_score = addr_result['score']
                 best_dec = dec
                 best_addr_result = addr_result
+                best_name_result = name_result
                 best_name_score = effective_score
                 best_boost_source = boost_source
 
@@ -1653,6 +1869,15 @@ def main():
                      + normalize_zip(best_dec['addrzipcode']))
         nameaddrscore = round5(jaro_winkler(canvas_combo, dec_combo) * 100)
 
+        # Build detail strings from best match
+        _name_norm_detail = best_name_result.get('name_norm_detail', '') if best_name_result else ''
+        _name_match_detail = best_name_result.get('name_match_detail', '') if best_name_result else ''
+        _addr_norm_detail = best_addr_result.get('addr_norm_detail', '') if best_addr_result else ''
+        _addr_match_detail = best_addr_result.get('addr_match_detail', '') if best_addr_result else ''
+        if best_boost_source:
+            boost_line = f"BOOST({best_boost_source}): {best_name_score:.3f}"
+            _name_match_detail = f"{_name_match_detail}; {boost_line}" if _name_match_detail else boost_line
+
         results.append({
             **base_record,
             'dec_hdrcode': best_dec['hdrcode'],
@@ -1672,6 +1897,10 @@ def main():
             'name_boost_source': best_boost_source,
             'dec_match_count': len(dec_matches),
             'Number_possible_address_matches': possible_addr_matches,
+            'name_normal_detail': _name_norm_detail,
+            'address_normal_detail': _addr_norm_detail,
+            'name_match_detail': _name_match_detail,
+            'addr_match_detail': _addr_match_detail,
         })
         # Also flag as trust if DEC name or address matches
         if not is_trust and (_trust_re.search(str(best_dec['hdrname']))
@@ -1809,6 +2038,8 @@ def main():
     # Ensure column order matches table schema
     col_order = [
         'ssn_match', 'name_score', 'name_boost_source', 'address_score', 'address_reason',
+        'name_normal_detail', 'address_normal_detail',
+        'name_match_detail', 'addr_match_detail',
         'nameaddrscore', 'recommendation',
         'canvas_name', 'canvas_address', 'canvas_city', 'canvas_state',
         'canvas_zip', 'canvas_addrseq', 'canvas_id', 'canvas_ssn',
