@@ -8,7 +8,7 @@ import re
 import json
 import os
 import pandas as pd
-import sqlite3
+
 import time
 from openpyxl.styles import PatternFill, Font, Alignment
 
@@ -26,10 +26,9 @@ from snowflake_conn import get_snowflake_connection
 from config_loader import load_config, load_lookups
 
 # Paths
-DB_PATH = 'ba_dedup.db'
 CANVAS_FILE = 'input/CANVAS_BA_MASTER_.xlsx'
 
-# Snowflake toggle (set to false to run in SQLite-only mode)
+# Snowflake toggle
 SNOWFLAKE_ENABLED = os.environ.get('SNOWFLAKE_ENABLED', 'false').lower() == 'true'
 
 # API override: send ambiguous name matches (score 15-70) to Claude for evaluation
@@ -399,6 +398,82 @@ _DATE_RE = re.compile(
     r'|\b\d{1,2}[/\-]\d{2,4}\b',                              # MM/YYYY or MM-YY
     re.IGNORECASE
 )
+
+# Patterns indicating a non-real / placeholder address → score 0
+_UNKNOWN_ADDR_RE = re.compile(
+    r'\b(?:'
+    r'UNKNOWN\s+ADDR(?:ESS)?|ADDR(?:ESS)?\s+UNKNOWN'
+    r'|NO\s+(?:VALID\s+)?ADDRESS'
+    r'|NOT\s+AVAILABLE'
+    r')\b'
+    r'|^(?:NONE|N/?A|UNKNOWN)$'
+)
+
+# Placeholder/junk pattern for cities and other text fields
+_UNKNOWN_TEXT_RE = re.compile(
+    r'\b(?:UNKNOWN|NOT\s+AVAILABLE|N/?A)\b'
+    r'|^(?:NONE|UNKNOWN)$'
+)
+
+
+def _needs_review_override(name, addr, city, state, zipcode,
+                           dec_name=None, dec_addr=None, dec_city=None,
+                           dec_state=None, dec_zip=None):
+    """Return reason string if record has bad data requiring review, else None.
+
+    Checks canvas fields (and optionally DEC fields) for: empty/null name or
+    address, unknown city, empty city/state/zip, unknown address patterns.
+    """
+    # --- Canvas fields ---
+    name_s = safe_str(name).strip()
+    addr_s = safe_str(addr).strip()
+    city_s = safe_str(city).strip()
+    state_s = safe_str(state).strip()
+    zip_s = safe_str(zipcode).strip()
+
+    if not name_s:
+        return 'EMPTY_NAME'
+    if not addr_s:
+        return 'EMPTY_ADDRESS'
+    if not city_s:
+        return 'EMPTY_CITY'
+    if not state_s:
+        return 'EMPTY_STATE'
+    if not zip_s:
+        return 'EMPTY_ZIP'
+    if _UNKNOWN_ADDR_RE.search(addr_s.upper()):
+        return 'UNKNOWN_ADDRESS'
+    if _UNKNOWN_TEXT_RE.search(city_s.upper()):
+        return 'UNKNOWN_CITY'
+    if _UNKNOWN_TEXT_RE.search(name_s.upper()):
+        return 'UNKNOWN_NAME'
+
+    # --- DEC fields (only when a DEC match exists) ---
+    if dec_name is not None:
+        dn = safe_str(dec_name).strip()
+        da = safe_str(dec_addr).strip()
+        dc = safe_str(dec_city).strip()
+        ds = safe_str(dec_state).strip()
+        dz = safe_str(dec_zip).strip()
+
+        if not dn:
+            return 'DEC_EMPTY_NAME'
+        if not da:
+            return 'DEC_EMPTY_ADDRESS'
+        if not dc:
+            return 'DEC_EMPTY_CITY'
+        if not ds:
+            return 'DEC_EMPTY_STATE'
+        if not dz:
+            return 'DEC_EMPTY_ZIP'
+        if _UNKNOWN_ADDR_RE.search(da.upper()):
+            return 'DEC_UNKNOWN_ADDRESS'
+        if _UNKNOWN_TEXT_RE.search(dc.upper()):
+            return 'DEC_UNKNOWN_CITY'
+        if _UNKNOWN_TEXT_RE.search(dn.upper()):
+            return 'DEC_UNKNOWN_NAME'
+
+    return None
 
 
 def normalize_address(addr, trust: bool = False, detail: list | None = None) -> str:
@@ -795,6 +870,14 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2,
             result.update(_build_addr_detail(a1_detail, a2_detail, match_detail))
         return result
 
+    # Placeholder / unknown address → score 0 (check before empty guards
+    # so "canvas empty + DEC unknown" doesn't slip through as ONE_EMPTY)
+    if ((addr1_norm and _UNKNOWN_ADDR_RE.search(addr1_norm)) or
+            (addr2_norm and _UNKNOWN_ADDR_RE.search(addr2_norm))):
+        if match_detail is not None:
+            match_detail.append("UNKNOWN_ADDRESS")
+        return _finalize({"same_address": False, "score": 0.0, "reason": "UNKNOWN_ADDRESS"})
+
     # Both empty
     if not addr1_norm and not addr2_norm:
         if match_detail is not None:
@@ -1094,70 +1177,13 @@ _google_addr_cache = {}  # keyed on (address, city, state, zip) → dict
 _google_api_calls = 0
 
 
-def _init_google_cache(conn):
-    """Create persistent cache table and pre-load into memory."""
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS google_address_lookups (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            input_address TEXT NOT NULL,
-            input_city TEXT NOT NULL,
-            input_state TEXT NOT NULL,
-            input_zip TEXT NOT NULL,
-            std_address TEXT,
-            std_city TEXT,
-            std_state TEXT,
-            std_zip TEXT,
-            verdict_json TEXT,
-            lookup_status TEXT NOT NULL DEFAULT 'success',
-            http_status INTEGER,
-            first_source_type TEXT,
-            first_source_id TEXT,
-            first_source_sub_id TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(input_address, input_city, input_state, input_zip)
-        )
-    """)
-    conn.commit()
-
-    # Pre-load success and failed rows (skip quota_error so they get retried)
-    cursor.execute("""
-        SELECT input_address, input_city, input_state, input_zip,
-               std_address, std_city, std_state, std_zip,
-               verdict_json, lookup_status
-        FROM google_address_lookups
-        WHERE lookup_status IN ('success', 'failed')
-    """)
-    for row in cursor:
-        key = (row[0], row[1], row[2], row[3])
-        if row[9] == 'success':
-            verdict = json.loads(row[8]) if row[8] else None
-            _google_addr_cache[key] = {
-                'standardized': (row[4], row[5], row[6], row[7]),
-                'verdict': verdict,
-                'status': 'success',
-            }
-        else:  # failed
-            _google_addr_cache[key] = {
-                'standardized': None,
-                'verdict': None,
-                'status': 'failed',
-            }
-    if _google_addr_cache:
-        print(f'Loaded {len(_google_addr_cache):,} cached Google address lookups')
 
 
-def google_validate_address(address, city, state, zip_code, conn=None,
-                            source_info=None):
+def google_validate_address(address, city, state, zip_code):
     """Validate/standardize a single address via Google Address Validation API.
 
     Returns dict with keys: standardized, verdict, status.
-    Uses in-memory cache (populated from persistent DB table) first.
-
-    Args:
-        address, city, state, zip_code: Address components to validate
-        conn: SQLite connection for persistent cache writes
-        source_info: Optional (source_type, source_id, source_sub_id) for traceability
+    Uses in-memory cache first.
     """
     global _google_api_calls
 
@@ -1186,16 +1212,11 @@ def google_validate_address(address, city, state, zip_code, conn=None,
         _google_api_calls += 1
 
         if resp.status_code in (403, 429):
-            # Don't cache quota errors in memory — they should be retried next run
-            _persist_lookup(conn, key, None, None, 'quota_error',
-                            resp.status_code, source_info)
             return {'standardized': None, 'verdict': None, 'status': 'quota_error'}
 
         if resp.status_code != 200:
             result = {'standardized': None, 'verdict': None, 'status': 'failed'}
             _google_addr_cache[key] = result
-            _persist_lookup(conn, key, None, None, 'failed',
-                            resp.status_code, source_info)
             return result
 
         data = resp.json()
@@ -1242,47 +1263,17 @@ def google_validate_address(address, city, state, zip_code, conn=None,
             'status': 'success',
         }
         _google_addr_cache[key] = result
-        _persist_lookup(conn, key, standardized, verdict, 'success',
-                        resp.status_code, source_info)
         return result
 
     except Exception:
         result = {'standardized': None, 'verdict': None, 'status': 'failed'}
         _google_addr_cache[key] = result
-        _persist_lookup(conn, key, None, None, 'failed', None, source_info)
         return result
 
 
-def _persist_lookup(conn, key, standardized, verdict, status, http_status,
-                    source_info):
-    """Write a lookup result to the persistent google_address_lookups table."""
-    if not conn:
-        return
-    try:
-        verdict_str = json.dumps(verdict) if verdict else None
-        src_type = source_info[0] if source_info else None
-        src_id = source_info[1] if source_info else None
-        src_sub = source_info[2] if source_info else None
-        conn.execute("""
-            INSERT OR REPLACE INTO google_address_lookups
-            (input_address, input_city, input_state, input_zip,
-             std_address, std_city, std_state, std_zip,
-             verdict_json, lookup_status, http_status,
-             first_source_type, first_source_id, first_source_sub_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (key[0], key[1], key[2], key[3],
-              standardized[0] if standardized else None,
-              standardized[1] if standardized else None,
-              standardized[2] if standardized else None,
-              standardized[3] if standardized else None,
-              verdict_str, status, http_status,
-              src_type, src_id, src_sub))
-        conn.commit()
-    except Exception:
-        pass  # Don't let cache write failures break the pipeline
 
 
-def google_override_address_scores(pairs, conn):
+def google_override_address_scores(pairs):
     """Send ambiguous address pairs to Google Address Validation API.
 
     For each pair, validates both Canvas and DEC addresses, then re-runs
@@ -1293,7 +1284,6 @@ def google_override_address_scores(pairs, conn):
                         canvas_id, canvas_addrseq,
                         dec_addr, dec_city, dec_state, dec_zip,
                         dec_hdrcode, dec_addrsubcode, original_score)
-        conn: SQLite connection for persistent cache
     Returns:
         dict mapping result index -> override info dict with keys:
         new_score, same_address, canvas_std, canvas_verdict,
@@ -1315,8 +1305,7 @@ def google_override_address_scores(pairs, conn):
 
         # Validate Canvas address
         c_result = google_validate_address(
-            c_addr, c_city, c_state, c_zip, conn=conn,
-            source_info=('canvas', c_id, c_addrseq))
+            c_addr, c_city, c_state, c_zip)
         if c_result['status'] == 'quota_error':
             print('  Google API quota/auth error — stopping remaining calls.')
             print('  Check your API key and billing at console.cloud.google.com.')
@@ -1325,8 +1314,7 @@ def google_override_address_scores(pairs, conn):
 
         # Validate DEC address
         d_result = google_validate_address(
-            d_addr, d_city, d_state, d_zip, conn=conn,
-            source_info=('dec', d_hdrcode, d_addrsubcode))
+            d_addr, d_city, d_state, d_zip)
         if d_result['status'] == 'quota_error':
             print('  Google API quota/auth error — stopping remaining calls.')
             quota_error = True
@@ -1484,8 +1472,7 @@ def main():
             print(f'  Connected: {db}.{schema}')
         except Exception as e:
             print(f'  Snowflake unavailable: {e}')
-            print(f'  Falling back to SQLite-only mode')
-            sf_conn = None
+            raise
     else:
         print('\nSnowflake disabled (SNOWFLAKE_ENABLED=false)')
 
@@ -1571,106 +1558,14 @@ def main():
         print(f'Loaded {len(canvas_df):,} Canvas records from Excel')
 
     # 2. Load DEC records into memory dict keyed by clean SSN
-    if sf_conn:
-        print(f'\nLoading DEC records from Snowflake Enertia views...')
-        dec_by_ssn, dec_total = _load_dec_from_snowflake(sf_conn)
-    else:
-        print(f'\nLoading DEC records from local database...')
-        conn_sqlite_dec = sqlite3.connect(DB_PATH)
-        cur_dec = conn_sqlite_dec.cursor()
-        cur_dec.execute(
-            'SELECT ssn, hdrcode, hdrname, addraddress, addrcity, '
-            'addrstate, addrzipcode, addrcontact, addrsubcode FROM dec_ba_master')
-        dec_by_ssn = {}
-        dec_total = 0
-        for row in cur_dec:
-            dec_total += 1
-            ssn_clean = clean_ssn(row[0])
-            if ssn_clean:
-                if ssn_clean not in dec_by_ssn:
-                    dec_by_ssn[ssn_clean] = []
-                dec_by_ssn[ssn_clean].append({
-                    'ssn': row[0], 'hdrcode': row[1], 'hdrname': row[2],
-                    'addraddress': row[3], 'addrcity': row[4],
-                    'addrstate': row[5], 'addrzipcode': row[6],
-                    'addrcontact': row[7], 'addrsubcode': row[8],
-                })
-        conn_sqlite_dec.close()
+    print(f'\nLoading DEC records from Snowflake Enertia views...')
+    dec_by_ssn, dec_total = _load_dec_from_snowflake(sf_conn)
 
     print(f'Loaded {dec_total:,} DEC records')
     dec_with_ssn = sum(len(v) for v in dec_by_ssn.values())
     print(f'DEC records with valid SSN: {dec_with_ssn:,}')
     print(f'Unique DEC SSNs: {len(dec_by_ssn):,}')
 
-    # Local SQLite for output + Google cache (always used)
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
-    # 2b. Init persistent Google address cache (if enabled)
-    if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
-        _init_google_cache(conn)
-
-    # 3. Create output table (MERGE_OUTPUT.csv format + match scores)
-    cursor.execute('DROP TABLE IF EXISTS import_merge_matches')
-    cursor.execute("""
-        CREATE TABLE import_merge_matches (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            -- Canvas source
-            canvas_name TEXT,
-            canvas_address TEXT,
-            canvas_city TEXT,
-            canvas_state TEXT,
-            canvas_zip TEXT,
-            canvas_addrseq TEXT,
-            -- Canvas identifiers
-            canvas_id TEXT,
-            canvas_ssn TEXT,
-            -- DEC best match
-            dec_hdrcode TEXT,
-            dec_name TEXT,
-            dec_address TEXT,
-            dec_city TEXT,
-            dec_state TEXT,
-            dec_zip TEXT,
-            dec_contact TEXT,
-            dec_addrsubcode TEXT,
-            -- Scores
-            ssn_match REAL,
-            name_score REAL,
-            name_boost_source TEXT,
-            address_score REAL,
-            address_reason TEXT,
-            nameaddrscore REAL,
-            recommendation TEXT,
-            dec_match_count INTEGER,
-            Number_possible_address_matches INTEGER,
-            is_trust INTEGER DEFAULT 0,
-            -- Google Address Lookup: Canvas
-            before_lookup_address TEXT,
-            before_lookup_city TEXT,
-            before_lookup_state TEXT,
-            before_lookup_zip TEXT,
-            address_looked_up INTEGER DEFAULT 0,
-            canvas_lookup_verdict TEXT,
-            -- Google Address Lookup: DEC
-            before_lookup_dec_address TEXT,
-            before_lookup_dec_city TEXT,
-            before_lookup_dec_state TEXT,
-            before_lookup_dec_zip TEXT,
-            dec_address_looked_up INTEGER DEFAULT 0,
-            dec_lookup_verdict TEXT,
-            --
-            jib INTEGER,
-            rev INTEGER,
-            vendor INTEGER,
-            -- Detail/audit columns
-            name_normal_detail TEXT,
-            address_normal_detail TEXT,
-            name_match_detail TEXT,
-            addr_match_detail TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
 
     # 4. Process each Canvas record
     results = []
@@ -1730,7 +1625,15 @@ def main():
 
         if not canvas_ssn:
             reason = 'INVALID SSN' if canvas_ssn_raw else 'NO SSN'
-            stats['new_ba_new_addr'] += 1
+            bad = _needs_review_override(canvas_name, canvas_addr,
+                                         canvas_city, canvas_state, canvas_zip)
+            if bad:
+                no_ssn_rec = 'NEEDS REVIEW'
+                reason = bad
+                stats['needs_review'] += 1
+            else:
+                no_ssn_rec = 'NEW BA AND NEW ADDRESS'
+                stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
@@ -1738,7 +1641,7 @@ def main():
                 'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
                 'address_reason': reason, 'nameaddrscore': None,
-                'recommendation': 'NEW BA AND NEW ADDRESS', 'dec_match_count': 0,
+                'recommendation': no_ssn_rec, 'dec_match_count': 0,
                 'Number_possible_address_matches': 0, 'name_boost_source': None,
                 'name_normal_detail': '', 'address_normal_detail': '',
                 'name_match_detail': '', 'addr_match_detail': '',
@@ -1749,15 +1652,24 @@ def main():
         dec_matches = dec_by_ssn.get(canvas_ssn, [])
 
         if not dec_matches:
-            stats['new_ba_new_addr'] += 1
+            bad = _needs_review_override(canvas_name, canvas_addr,
+                                         canvas_city, canvas_state, canvas_zip)
+            if bad:
+                no_dec_rec = 'NEEDS REVIEW'
+                no_dec_reason = bad
+                stats['needs_review'] += 1
+            else:
+                no_dec_rec = 'NEW BA AND NEW ADDRESS'
+                no_dec_reason = 'SSN NOT FOUND IN DEC'
+                stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
                 'dec_city': '', 'dec_state': '', 'dec_zip': '',
                 'dec_contact': '', 'dec_addrsubcode': '',
                 'ssn_match': 0.0, 'name_score': 0.0, 'address_score': 0.0,
-                'address_reason': 'SSN NOT FOUND IN DEC', 'nameaddrscore': None,
-                'recommendation': 'NEW BA AND NEW ADDRESS',
+                'address_reason': no_dec_reason, 'nameaddrscore': None,
+                'recommendation': no_dec_rec,
                 'dec_match_count': 0,
                 'Number_possible_address_matches': 0, 'name_boost_source': None,
                 'name_normal_detail': '', 'address_normal_detail': '',
@@ -1854,6 +1766,13 @@ def main():
         name_pct = round5(best_name_score * 100)
         addr_pct = round5(best_addr_score * 100)
         rec = _classify(name_pct, addr_pct, BUCKET_RULES)
+        bad = _needs_review_override(
+            canvas_name, canvas_addr, canvas_city, canvas_state, canvas_zip,
+            dec_name=best_dec['hdrname'], dec_addr=best_dec['addraddress'],
+            dec_city=best_dec['addrcity'], dec_state=best_dec['addrstate'],
+            dec_zip=best_dec['addrzipcode'])
+        if bad or best_addr_result.get('reason') == 'UNKNOWN_ADDRESS':
+            rec = 'NEEDS REVIEW'
         stats[_REC_TO_STAT[rec]] += 1
 
         # Composite name+address score (holistic identity similarity)
@@ -1971,7 +1890,7 @@ def main():
         ]
         if ambiguous_addr:
             print(f'\nGoogle Address API: {len(ambiguous_addr)} ambiguous address pairs...')
-            addr_overrides = google_override_address_scores(ambiguous_addr, conn)
+            addr_overrides = google_override_address_scores(ambiguous_addr)
             reclassified = 0
             score_overrides = 0
             for idx, ov in addr_overrides.items():
@@ -2060,22 +1979,8 @@ def main():
     ]
     results_df = results_df[col_order]
     results_df = results_df.sort_values('recommendation').reset_index(drop=True)
-    results_df.to_sql('import_merge_matches', conn, if_exists='append',
-                      index=False)
 
-    # Create indexes for fast lookups
-    print('Creating indexes...')
-    cursor.execute(
-        'CREATE INDEX IF NOT EXISTS idx_cdm_ssn ON import_merge_matches(canvas_ssn)')
-    cursor.execute(
-        'CREATE INDEX IF NOT EXISTS idx_cdm_rec ON import_merge_matches(recommendation)')
-    cursor.execute(
-        'CREATE INDEX IF NOT EXISTS idx_cdm_ssn_match ON import_merge_matches(ssn_match)')
-    cursor.execute(
-        'CREATE INDEX IF NOT EXISTS idx_cdm_addr_score ON import_merge_matches(address_score)')
-    conn.commit()
-
-    # 5b. Write results to Snowflake (if connected)
+    # 5b. Write results to Snowflake
     if sf_conn:
         print('\nWriting results to Snowflake...')
         nrows = _write_results_to_snowflake(results_df, sf_conn, run_id)
@@ -2102,40 +2007,17 @@ def main():
     for b in BUCKET_RULES:
         print(f'  {b["name"]}: name {b["name_min"]}-{b["name_max"]}'
               f' / addr {b["addr_min"]}-{b["addr_max"]}')
-    print(f'Results table: import_merge_matches')
-    print(f'Database: {DB_PATH}')
-    print(f'')
-    print('Query examples:')
-    print('  -- Existing BA with existing address')
-    print('  SELECT * FROM import_merge_matches '
-          'WHERE recommendation = "EXISTING BA AND EXISTING ADDRESS";')
-    print('')
-    print('  -- All new BAs')
-    print('  SELECT * FROM import_merge_matches '
-          'WHERE recommendation = "NEW BA AND NEW ADDRESS";')
-    print('')
-    print('  -- Everything needing review')
-    print('  SELECT * FROM import_merge_matches '
-          'WHERE recommendation = "NEEDS REVIEW";')
-    print('')
-    print('  -- Summary by recommendation')
-    print('  SELECT recommendation, COUNT(*) as cnt '
-          'FROM import_merge_matches GROUP BY recommendation;')
     print('=' * 80)
 
     # 7. Export to Excel with color-coded headers
     excel_path = 'output/import_merge_matches.xlsx'
     os.makedirs('output', exist_ok=True)
     print(f'\nExporting to {excel_path}...')
-    export_df = pd.read_sql('SELECT * FROM import_merge_matches', conn)
-    export_df.drop(columns=['id', 'created_at'], inplace=True, errors='ignore')
+    export_df = results_df.copy()
     # Strip control characters that openpyxl rejects
     for col in export_df.select_dtypes(include='object').columns:
         export_df[col] = export_df[col].apply(
             lambda x: re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(x)) if pd.notna(x) else x)
-
-    # Reorder columns: scores/recommendation first
-    export_df = export_df[col_order]
 
     # Mask SSNs in Excel output (show last 4 only)
     if 'canvas_ssn' in export_df.columns:
@@ -2391,8 +2273,6 @@ def main():
 
     print(f'Exported {len(export_df):,} rows to {excel_path}')
     print('=' * 80)
-
-    conn.close()
 
     if sf_conn:
         sf_conn.close()
