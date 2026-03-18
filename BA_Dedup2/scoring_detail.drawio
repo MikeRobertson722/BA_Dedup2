@@ -1,492 +1,459 @@
-<mxfile host="app.diagrams.net" modified="2026-02-26" agent="Claude" version="24.0.0" type="device">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36" version="29.6.0">
   <diagram id="scoring-detail" name="Name &amp; Address Scoring">
-    <mxGraphModel dx="2200" dy="2800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="3300" pageHeight="2400" math="0" shadow="0">
+    <mxGraphModel dx="4191" dy="2405" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="3300" pageHeight="2400" math="0" shadow="0">
       <root>
-        <mxCell id="0"/>
-        <mxCell id="1" parent="0"/>
-
-        <!-- ========== TITLE ========== -->
-        <mxCell id="title" value="BA Dedup2 — Name &amp; Address Scoring Detail" style="text;html=1;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" vertex="1" parent="1">
-          <mxGeometry x="400" y="-30" width="800" height="40" as="geometry"/>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" parent="1" style="text;html=1;fontSize=24;fontStyle=1;align=center;verticalAlign=middle;whiteSpace=wrap;" value="BA Dedup2 — Name &amp; Address Scoring Detail" vertex="1">
+          <mxGeometry height="40" width="800" x="400" y="-30" as="geometry" />
         </mxCell>
 
-        <!-- ================================================================ -->
-        <!-- NAME SCORING (Left Side)                                         -->
-        <!-- ================================================================ -->
-        <mxCell id="name_header" value="NAME SCORING" style="text;html=1;fontSize=18;fontStyle=1;align=center;fontColor=#333;" vertex="1" parent="1">
-          <mxGeometry x="140" y="30" width="500" height="30" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- NAME SCORING (left column)                                    -->
+        <!-- ============================================================ -->
+        <mxCell id="name_header" parent="1" style="text;html=1;fontSize=18;fontStyle=1;align=center;fontColor=#333;" value="NAME SCORING" vertex="1">
+          <mxGeometry height="30" width="500" x="140" y="30" as="geometry" />
         </mxCell>
 
         <!-- Step 1: normalize_name() -->
-        <mxCell id="name_norm_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="40" y="70" width="700" height="260" as="geometry"/>
+        <mxCell id="name_norm_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="260" width="700" x="40" y="70" as="geometry" />
         </mxCell>
-        <mxCell id="name_norm_title" value="&lt;b&gt;Step 1: normalize_name()&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="240" y="75" width="300" height="25" as="geometry"/>
+        <mxCell id="name_norm_title" parent="1" style="text;html=1;fontSize=14;align=center;verticalAlign=middle;" value="&lt;b&gt;Step 1: normalize_name()&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="300" x="240" y="75" as="geometry" />
         </mxCell>
-
-        <mxCell id="nn0" value="&lt;b&gt;Trust mode:&lt;/b&gt; if trust=True → just UPPERCASE + collapse whitespace, skip all below" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="60" y="105" width="620" height="25" as="geometry"/>
+        <mxCell id="nn0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;fontStyle=2;" value="&lt;b&gt;Trust mode:&lt;/b&gt; if trust=True → just UPPERCASE + collapse whitespace, skip all below" vertex="1">
+          <mxGeometry height="25" width="620" x="60" y="105" as="geometry" />
         </mxCell>
-
-        <mxCell id="nn1" value="Replace &lt;b&gt;/ &amp;amp;&lt;/b&gt; with space" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="60" y="140" width="200" height="30" as="geometry"/>
+        <mxCell id="nn1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" value="Replace &lt;b&gt;/ &amp;amp;&lt;/b&gt; with space" vertex="1">
+          <mxGeometry height="30" width="200" x="60" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="nn2" value="Strip special chars &lt;code&gt;[^A-Za-z0-9\s]&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="280" y="140" width="220" height="30" as="geometry"/>
+        <mxCell id="nn2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;" value="Strip special chars &lt;code&gt;[^A-Za-z0-9\s]&lt;/code&gt;" vertex="1">
+          <mxGeometry height="30" width="220" x="280" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="nn3" value="UPPERCASE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="520" y="140" width="120" height="30" as="geometry"/>
+        <mxCell id="nn3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" value="UPPERCASE" vertex="1">
+          <mxGeometry height="30" width="120" x="520" y="140" as="geometry" />
         </mxCell>
-
-        <mxCell id="nn4" value="&lt;b&gt;Suffix Map Replacements&lt;/b&gt;&lt;br&gt;FEDERAL EXPRESS → FEDEX&lt;br&gt;Multi-word states: NEW YORK → NEWYORK&lt;br&gt;Trust: LIV TR → LIVING TRUST, REV/REVOC → REVOCABLE, TR → TRUST&lt;br&gt;CORPORATION → CORP, JUNIOR → JR, SENIOR → SR&lt;br&gt;L L C → LLC, L P → LP" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="60" y="180" width="310" height="95" as="geometry"/>
+        <mxCell id="nn4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Suffix Map Replacements&lt;/b&gt;&lt;br&gt;FEDERAL EXPRESS → FEDEX&lt;br&gt;Multi-word states: NEW YORK → NEWYORK&lt;br&gt;Trust: LIV TR → LIVING TRUST, REV/REVOC → REVOCABLE, TR → TRUST&lt;br&gt;CORPORATION → CORP, JUNIOR → JR, SENIOR → SR&lt;br&gt;L L C → LLC, L P → LP" vertex="1">
+          <mxGeometry height="95" width="310" x="60" y="180" as="geometry" />
         </mxCell>
-        <mxCell id="nn5" value="Split concatenated Roman&lt;br&gt;&lt;code&gt;PDIII → PD III&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="390" y="180" width="200" height="40" as="geometry"/>
+        <mxCell id="nn5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" value="Split concatenated Roman&lt;br&gt;&lt;code&gt;PDIII → PD III&lt;/code&gt;" vertex="1">
+          <mxGeometry height="40" width="200" x="390" y="180" as="geometry" />
         </mxCell>
-        <mxCell id="nn6" value="Collapse single letters&lt;br&gt;&lt;code&gt;J V S LLC → JVS LLC&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="390" y="230" width="230" height="40" as="geometry"/>
+        <mxCell id="nn6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=11;" value="Collapse single letters&lt;br&gt;&lt;code&gt;J V S LLC → JVS LLC&lt;/code&gt;" vertex="1">
+          <mxGeometry height="40" width="230" x="390" y="230" as="geometry" />
         </mxCell>
-        <mxCell id="nn7" value="&lt;b&gt;Output: normalized name string&lt;/b&gt;" style="text;html=1;fontSize=11;fontColor=#555;align=center;" vertex="1" parent="1">
-          <mxGeometry x="140" y="285" width="500" height="20" as="geometry"/>
+        <mxCell id="nn7" parent="1" style="text;html=1;fontSize=11;fontColor=#555;align=center;" value="&lt;b&gt;Output: normalized name string&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="500" x="140" y="285" as="geometry" />
         </mxCell>
 
-        <!-- Arrow: norm → compare -->
-        <mxCell id="a_n1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="name_norm_group" target="name_cmp_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <!-- Arrow: normalize → compare -->
+        <mxCell id="a_n1" edge="1" parent="1" source="name_norm_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;" target="name_cmp_group">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
         <!-- Step 2: name_compare() -->
-        <mxCell id="name_cmp_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=6;" vertex="1" parent="1">
-          <mxGeometry x="40" y="350" width="700" height="600" as="geometry"/>
+        <mxCell id="name_cmp_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="600" width="700" x="40" y="350" as="geometry" />
         </mxCell>
-        <mxCell id="name_cmp_title" value="&lt;b&gt;Step 2: name_compare()&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
-          <mxGeometry x="240" y="355" width="300" height="25" as="geometry"/>
+        <mxCell id="name_cmp_title" parent="1" style="text;html=1;fontSize=14;align=center;" value="&lt;b&gt;Step 2: name_compare()&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="300" x="240" y="355" as="geometry" />
         </mxCell>
-
-        <!-- Exact match check -->
-        <mxCell id="nc_exact" value="Normalized strings equal?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="270" y="390" width="230" height="50" as="geometry"/>
+        <mxCell id="nc_exact" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Normalized strings equal?" vertex="1">
+          <mxGeometry height="50" width="230" x="270" y="390" as="geometry" />
         </mxCell>
-        <mxCell id="nc_exact_yes" value="&lt;b&gt;Score = 100&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="560" y="395" width="120" height="40" as="geometry"/>
+        <mxCell id="nc_exact_yes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="&lt;b&gt;Score = 100&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="120" x="560" y="395" as="geometry" />
         </mxCell>
-        <mxCell id="a_exact_y" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_exact" target="nc_exact_yes">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_exact_y" edge="1" parent="1" source="nc_exact" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" target="nc_exact_yes" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Tokenize & strip -->
-        <mxCell id="nc_token" value="&lt;b&gt;Tokenize &amp;amp; Clean Tokens&lt;/b&gt;&lt;br&gt;1. Strip NAME_SUFFIXES: JR, SR, II, III, IV, V&lt;br&gt;2. Acronym check: CSC = Corp Service Co → &lt;b&gt;95&lt;/b&gt;&lt;br&gt;3. Strip BUSINESS_SUFFIXES: LLC, INC, CORP, CO, LTD, LP...&lt;br&gt;4. Strip BUSINESS_DESCRIPTORS: SERVICES, HOLDINGS...&lt;br&gt;5. Strip &lt;b&gt;INDUSTRY_TERMS&lt;/b&gt;: EXPLORATION, DRILLING, OIL, GAS,&lt;br&gt;   PETROLEUM, ENERGY, RESOURCES, PIPELINE, MINERALS...&lt;br&gt;6. Strip AND, THE&lt;br&gt;7. &lt;b&gt;canonicalize_token()&lt;/b&gt; each remaining token" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="80" y="455" width="380" height="130" as="geometry"/>
+        <mxCell id="nc_token" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Tokenize &amp;amp; Clean Tokens&lt;/b&gt;&lt;br&gt;1. Strip NAME_SUFFIXES: JR, SR, II, III, IV, V&lt;br&gt;2. Acronym check: CSC = Corp Service Co → &lt;b&gt;95&lt;/b&gt;&lt;br&gt;3. Strip BUSINESS_SUFFIXES: LLC, INC, CORP, CO, LTD, LP...&lt;br&gt;4. Strip BUSINESS_DESCRIPTORS: SERVICES, HOLDINGS...&lt;br&gt;5. Strip &lt;b&gt;INDUSTRY_TERMS&lt;/b&gt;: EXPLORATION, DRILLING, OIL, GAS,&lt;br&gt;   PETROLEUM, ENERGY, RESOURCES, PIPELINE, MINERALS...&lt;br&gt;6. Strip AND, THE&lt;br&gt;7. &lt;b&gt;canonicalize_token()&lt;/b&gt; each remaining token" vertex="1">
+          <mxGeometry height="130" width="380" x="80" y="455" as="geometry" />
         </mxCell>
-        <mxCell id="a_exact_n" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_exact" target="nc_token">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_exact_n" edge="1" parent="1" source="nc_exact" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" target="nc_token" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- canonicalize_token detail -->
-        <mxCell id="nc_canon" value="&lt;b&gt;canonicalize_token()&lt;/b&gt;&lt;br&gt;NICKNAMES: JIMMY→JAMES, BOB→ROBERT...&lt;br&gt;NUMBER_WORDS: ONE→1, TWO→2...&lt;br&gt;STATE_ABBREVS: TX→TEXAS, OK→OKLAHOMA...&lt;br&gt;(skip IN, CO — ambiguous)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="490" y="460" width="230" height="85" as="geometry"/>
+        <mxCell id="nc_canon" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;canonicalize_token()&lt;/b&gt;&lt;br&gt;NICKNAMES: JIMMY→JAMES, BOB→ROBERT...&lt;br&gt;NUMBER_WORDS: ONE→1, TWO→2...&lt;br&gt;STATE_ABBREVS: TX→TEXAS, OK→OKLAHOMA...&lt;br&gt;(skip IN, CO — ambiguous)" vertex="1">
+          <mxGeometry height="85" width="230" x="490" y="460" as="geometry" />
         </mxCell>
-
-        <!-- Post-strip exact check -->
-        <mxCell id="nc_post_exact" value="Cleaned tokens equal?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="270" y="600" width="230" height="50" as="geometry"/>
+        <mxCell id="nc_post_exact" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Cleaned tokens equal?" vertex="1">
+          <mxGeometry height="50" width="230" x="270" y="600" as="geometry" />
         </mxCell>
-        <mxCell id="a_tok_to_post" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=1.5;" edge="1" parent="1" source="nc_token" target="nc_post_exact">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_tok_to_post" edge="1" parent="1" source="nc_token" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=1.5;" target="nc_post_exact">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="nc_post_yes" value="&lt;b&gt;Score = 100&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="560" y="605" width="120" height="40" as="geometry"/>
+        <mxCell id="nc_post_yes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="&lt;b&gt;Score = 100&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="120" x="560" y="605" as="geometry" />
         </mxCell>
-        <mxCell id="a_post_y" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_post_exact" target="nc_post_yes">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_post_y" edge="1" parent="1" source="nc_post_exact" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" target="nc_post_yes" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Initial match check -->
-        <mxCell id="nc_initial" value="Initial-match?&lt;br&gt;&lt;font size=&quot;1&quot;&gt;J SMITH = JOHN SMITH&lt;br&gt;(2+ tokens, single-letter first + same last)&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="250" y="665" width="270" height="60" as="geometry"/>
+        <mxCell id="nc_initial" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" value="Initial-match?&lt;br&gt;&lt;font size=&quot;1&quot;&gt;J SMITH = JOHN SMITH&lt;br&gt;(2+ tokens, single-letter first + same last)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="270" x="250" y="665" as="geometry" />
         </mxCell>
-        <mxCell id="a_post_n" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_post_exact" target="nc_initial">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_post_n" edge="1" parent="1" source="nc_post_exact" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" target="nc_initial" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="nc_init_yes" value="&lt;b&gt;Score = 95&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="560" y="675" width="120" height="40" as="geometry"/>
+        <mxCell id="nc_init_yes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" value="&lt;b&gt;Score = 95&lt;/b&gt;" vertex="1">
+          <mxGeometry height="40" width="120" x="560" y="675" as="geometry" />
         </mxCell>
-        <mxCell id="a_init_y" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_initial" target="nc_init_yes">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_init_y" edge="1" parent="1" source="nc_initial" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" target="nc_init_yes" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- Similarity engine -->
-        <mxCell id="nc_sim" value="&lt;b&gt;Multi-Strategy Similarity&lt;/b&gt;" style="text;html=1;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
-          <mxGeometry x="180" y="740" width="250" height="20" as="geometry"/>
+        <!-- Multi-Strategy Similarity -->
+        <mxCell id="nc_sim" parent="1" style="text;html=1;fontSize=12;fontStyle=1;align=center;verticalAlign=middle;" value="&lt;b&gt;Multi-Strategy Similarity&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="250" x="180" y="740" as="geometry" />
         </mxCell>
-        <mxCell id="a_init_n" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" edge="1" parent="1" source="nc_initial" target="nc_sim">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_init_n" edge="1" parent="1" source="nc_initial" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" target="nc_sim" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="nc_jw1" value="&lt;b&gt;Direct JW&lt;/b&gt;&lt;br&gt;jaro_winkler(c1, c2)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="60" y="770" width="170" height="40" as="geometry"/>
+        <mxCell id="nc_jw1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" value="&lt;b&gt;Direct JW&lt;/b&gt;&lt;br&gt;jaro_winkler(c1, c2)" vertex="1">
+          <mxGeometry height="40" width="170" x="60" y="770" as="geometry" />
         </mxCell>
-        <mxCell id="nc_jw2" value="&lt;b&gt;Sorted JW&lt;/b&gt;&lt;br&gt;sort tokens alphabetically" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="250" y="770" width="180" height="40" as="geometry"/>
+        <mxCell id="nc_jw2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" value="&lt;b&gt;Sorted JW&lt;/b&gt;&lt;br&gt;sort tokens alphabetically" vertex="1">
+          <mxGeometry height="40" width="180" x="250" y="770" as="geometry" />
         </mxCell>
-        <mxCell id="nc_jw3" value="&lt;b&gt;Compact JW&lt;/b&gt;&lt;br&gt;strip all non-alnum" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="450" y="770" width="170" height="40" as="geometry"/>
+        <mxCell id="nc_jw3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;" value="&lt;b&gt;Compact JW&lt;/b&gt;&lt;br&gt;strip all non-alnum" vertex="1">
+          <mxGeometry height="40" width="170" x="450" y="770" as="geometry" />
         </mxCell>
-        <mxCell id="nc_best_jw" value="&lt;b&gt;best_jw = max(direct, sorted, compact)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
-          <mxGeometry x="155" y="825" width="380" height="30" as="geometry"/>
+        <mxCell id="nc_best_jw" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#9673a6;fontSize=11;" value="&lt;b&gt;best_jw = max(direct, sorted, compact)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="30" width="380" x="155" y="825" as="geometry" />
         </mxCell>
-
-        <!-- Token overlap -->
-        <mxCell id="nc_overlap" value="&lt;b&gt;enhanced_token_overlap()&lt;/b&gt;&lt;br&gt;1. Exact token match&lt;br&gt;2. Initial match (J ↔ JOHN)&lt;br&gt;3. Fuzzy match (JW &amp;gt; 0.88, both tokens &amp;gt; 4 chars)&lt;br&gt;&lt;b&gt;Result:&lt;/b&gt; overlap_coeff = matched / smaller_set_size" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="60" y="870" width="340" height="80" as="geometry"/>
+        <mxCell id="nc_overlap" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDE7F6;strokeColor=#9673a6;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;enhanced_token_overlap()&lt;/b&gt;&lt;br&gt;1. Exact token match&lt;br&gt;2. Initial match (J ↔ JOHN)&lt;br&gt;3. Fuzzy match (JW &amp;gt; 0.88, both tokens &amp;gt; 4 chars)&lt;br&gt;&lt;b&gt;Result:&lt;/b&gt; overlap_coeff = matched / smaller_set_size" vertex="1">
+          <mxGeometry height="80" width="340" x="60" y="870" as="geometry" />
         </mxCell>
-
-        <!-- Bookend bonus -->
-        <mxCell id="nc_bookend" value="&lt;b&gt;Bookend Bonus&lt;/b&gt;&lt;br&gt;If first tokens match (exact, initial, &lt;br&gt;or JW ≥ 0.85) AND last tokens match:&lt;br&gt;&lt;b&gt;overlap_coeff = max(overlap, 0.90)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="420" y="870" width="290" height="75" as="geometry"/>
+        <mxCell id="nc_bookend" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Bookend Bonus&lt;/b&gt;&lt;br&gt;If first tokens match (exact, initial, &lt;br&gt;or JW ≥ 0.85) AND last tokens match:&lt;br&gt;&lt;b&gt;overlap_coeff = max(overlap, 0.90)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="75" width="290" x="420" y="870" as="geometry" />
+        </mxCell>
+        <mxCell id="nc_formula" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;" value="&lt;b&gt;score = best_jw × (0.3 + 0.7 × overlap_coeff)&lt;/b&gt;&lt;br&gt;&lt;br&gt;If compact_jw ≥ 0.95: score = max(score, compact_jw)&lt;br&gt;&lt;br&gt;&lt;b&gt;Round to nearest 5, scale to 0–100&lt;/b&gt;" vertex="1">
+          <mxGeometry height="70" width="420" x="150" y="960" as="geometry" />
         </mxCell>
 
-        <!-- Final score formula -->
-        <mxCell id="nc_formula" value="&lt;b&gt;score = best_jw × (0.3 + 0.7 × overlap_coeff)&lt;/b&gt;&lt;br&gt;&lt;br&gt;If compact_jw ≥ 0.95: score = max(score, compact_jw)&lt;br&gt;&lt;br&gt;&lt;b&gt;Round to nearest 5, scale to 0–100&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;" vertex="1" parent="1">
-          <mxGeometry x="150" y="960" width="420" height="70" as="geometry"/>
+        <!-- Address-Name Boost -->
+        <mxCell id="boost_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#5C6BC0;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="200" width="700" x="40" y="1050" as="geometry" />
+        </mxCell>
+        <mxCell id="boost_title" parent="1" style="text;html=1;fontSize=13;align=center;fontColor=#283593;" value="&lt;b&gt;Address-Name Boost (supplementary name sources, capped at 0.95)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="500" x="140" y="1055" as="geometry" />
+        </mxCell>
+        <mxCell id="boost_sources" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#5C6BC0;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;If primary name_score &amp;lt; 0.95, check supplementary sources (best wins):&lt;/b&gt;&lt;br&gt;1. DEC_CONTACT: Canvas name vs DEC addrcontact field&lt;br&gt;2. CANVAS_ADDR_NAME: names from Canvas address (C/O, ATTN patterns) vs DEC hdrname&lt;br&gt;3. CANVAS_ADDR+DEC_CONTACT: Canvas address names vs DEC addrcontact&lt;br&gt;4. DEC_ADDR_NAME: Canvas name vs names from DEC address field&lt;br&gt;5. CANVAS_ADDR+DEC_ADDR: Canvas address names vs DEC address names" vertex="1">
+          <mxGeometry height="100" width="400" x="60" y="1085" as="geometry" />
+        </mxCell>
+        <mxCell id="boost_extract" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#5C6BC0;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Name Extraction from Addresses:&lt;/b&gt;&lt;br&gt;• C/O &amp;lt;name&amp;gt; (before digits/PO BOX)&lt;br&gt;• ATTN: &amp;lt;name&amp;gt; (before digits/PO BOX)&lt;br&gt;• Strip role suffixes: MANAGER, AGENT,&lt;br&gt;  DIRECTOR, PRESIDENT, VP, etc." vertex="1">
+          <mxGeometry height="100" width="240" x="480" y="1085" as="geometry" />
+        </mxCell>
+        <mxCell id="boost_note" parent="1" style="text;html=1;fontSize=10;fontColor=#5C6BC0;align=center;" value="All supplementary scores capped at &lt;b&gt;0.95&lt;/b&gt; — only applied if better than primary name_compare result" vertex="1">
+          <mxGeometry height="15" width="580" x="100" y="1225" as="geometry" />
+        </mxCell>
+        <mxCell id="a_name_to_boost" edge="1" parent="1" source="nc_formula" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#5C6BC0;strokeWidth=2;dashed=1;" target="boost_group">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- ================================================================ -->
-        <!-- ADDRESS-NAME BOOST (between name scoring and address scoring)    -->
-        <!-- ================================================================ -->
-        <mxCell id="boost_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8EAF6;strokeColor=#5C6BC0;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="40" y="1050" width="700" height="170" as="geometry"/>
-        </mxCell>
-        <mxCell id="boost_title" value="&lt;b&gt;Address-Name Boost (supplementary name sources, capped at 0.95)&lt;/b&gt;" style="text;html=1;fontSize=13;align=center;fontColor=#283593;" vertex="1" parent="1">
-          <mxGeometry x="140" y="1055" width="500" height="25" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="boost_sources" value="&lt;b&gt;If primary name_score &amp;lt; 0.95, check supplementary sources (best wins):&lt;/b&gt;&lt;br&gt;1. DEC_CONTACT: Canvas name vs DEC addrcontact field&lt;br&gt;2. CANVAS_ADDR_NAME: names from Canvas address (C/O, ATTN patterns) vs DEC hdrname&lt;br&gt;3. CANVAS_ADDR+DEC_CONTACT: Canvas address names vs DEC addrcontact&lt;br&gt;4. DEC_ADDR_NAME: Canvas name vs names from DEC address field&lt;br&gt;5. CANVAS_ADDR+DEC_ADDR: Canvas address names vs DEC address names" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#5C6BC0;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="60" y="1085" width="400" height="100" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="boost_extract" value="&lt;b&gt;Name Extraction from Addresses:&lt;/b&gt;&lt;br&gt;• C/O &amp;lt;name&amp;gt; (before digits/PO BOX)&lt;br&gt;• ATTN: &amp;lt;name&amp;gt; (before digits/PO BOX)&lt;br&gt;• Strip role suffixes: MANAGER, AGENT,&lt;br&gt;  DIRECTOR, PRESIDENT, VP, etc." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C5CAE9;strokeColor=#5C6BC0;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="480" y="1085" width="240" height="100" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="boost_note" value="All supplementary scores capped at &lt;b&gt;0.95&lt;/b&gt; — only applied if better than primary name_compare result" style="text;html=1;fontSize=10;fontColor=#5C6BC0;align=center;" vertex="1" parent="1">
-          <mxGeometry x="100" y="1195" width="580" height="15" as="geometry"/>
-        </mxCell>
-
-        <!-- Arrow: name formula → boost -->
-        <mxCell id="a_name_to_boost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#5C6BC0;strokeWidth=2;dashed=1;" edge="1" parent="1" source="nc_formula" target="boost_group">
-          <mxGeometry relative="1" as="geometry"/>
-        </mxCell>
-
-        <!-- ================================================================ -->
-        <!-- ADDRESS SCORING (Right Side)                                     -->
-        <!-- ================================================================ -->
-        <mxCell id="addr_header" value="ADDRESS SCORING" style="text;html=1;fontSize=18;fontStyle=1;align=center;fontColor=#333;" vertex="1" parent="1">
-          <mxGeometry x="900" y="30" width="500" height="30" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- ADDRESS SCORING (right column)                                -->
+        <!-- ============================================================ -->
+        <mxCell id="addr_header" parent="1" style="text;html=1;fontSize=18;fontStyle=1;align=center;fontColor=#333;" value="ADDRESS SCORING" vertex="1">
+          <mxGeometry height="30" width="500" x="900" y="30" as="geometry" />
         </mxCell>
 
         <!-- Step 1: normalize_address() -->
-        <mxCell id="addr_norm_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="800" y="70" width="720" height="280" as="geometry"/>
+        <mxCell id="addr_norm_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="280" width="720" x="800" y="70" as="geometry" />
         </mxCell>
-        <mxCell id="addr_norm_title" value="&lt;b&gt;Step 1: normalize_address()&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="75" width="300" height="25" as="geometry"/>
+        <mxCell id="addr_norm_title" parent="1" style="text;html=1;fontSize=14;align=center;" value="&lt;b&gt;Step 1: normalize_address()&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="300" x="1000" y="75" as="geometry" />
         </mxCell>
-
-        <mxCell id="an0" value="&lt;b&gt;Trust mode:&lt;/b&gt; if trust=True → just UPPERCASE + collapse whitespace, skip all below" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;fontStyle=2;" vertex="1" parent="1">
-          <mxGeometry x="820" y="105" width="680" height="25" as="geometry"/>
+        <mxCell id="an0" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;fontStyle=2;" value="&lt;b&gt;Trust mode:&lt;/b&gt; if trust=True → just UPPERCASE + collapse whitespace, skip all below" vertex="1">
+          <mxGeometry height="25" width="680" x="820" y="105" as="geometry" />
         </mxCell>
-
-        <mxCell id="an_dates" value="&lt;b&gt;Strip Dates&lt;/b&gt;&lt;br&gt;Remove DATED prefix&lt;br&gt;Strip: JUNE 14 2012, MAR 2012&lt;br&gt;Strip: MM/DD/YYYY, MM-DD-YYYY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="820" y="140" width="200" height="70" as="geometry"/>
+        <mxCell id="an_dates" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Strip Dates&lt;/b&gt;&lt;br&gt;Remove DATED prefix&lt;br&gt;Strip: JUNE 14 2012, MAR 2012&lt;br&gt;Strip: MM/DD/YYYY, MM-DD-YYYY" vertex="1">
+          <mxGeometry height="70" width="200" x="820" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="an1" value="&lt;b&gt;PO Box Canonicalization&lt;/b&gt;&lt;br&gt;POST OFFICE BOX / P.O. BOX → PO BOX&lt;br&gt;POB / POP BOX → PO BOX&lt;br&gt;BOX 5 → PO BOX 5 (if entire line)&lt;br&gt;PO BOX ONE → PO BOX 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1040" y="140" width="220" height="80" as="geometry"/>
+        <mxCell id="an1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;PO Box Canonicalization&lt;/b&gt;&lt;br&gt;POST OFFICE BOX / P.O. BOX → PO BOX&lt;br&gt;POB / POP BOX → PO BOX&lt;br&gt;BOX 5 → PO BOX 5 (if entire line)&lt;br&gt;PO BOX ONE → PO BOX 1" vertex="1">
+          <mxGeometry height="80" width="220" x="1040" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="an2" value="&lt;b&gt;Direction Normalization&lt;/b&gt;&lt;br&gt;NORTHEAST → NE, NORTH → N&lt;br&gt;SOUTH → S, EAST → E, WEST → W" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1280" y="140" width="220" height="60" as="geometry"/>
+        <mxCell id="an2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Direction Normalization&lt;/b&gt;&lt;br&gt;NORTHEAST → NE, NORTH → N&lt;br&gt;SOUTH → S, EAST → E, WEST → W" vertex="1">
+          <mxGeometry height="60" width="220" x="1280" y="140" as="geometry" />
         </mxCell>
-        <mxCell id="an3" value="&lt;b&gt;Street Type Abbreviation&lt;/b&gt;&lt;br&gt;STREET→ST, AVENUE→AVE, BOULEVARD→BLVD&lt;br&gt;DRIVE→DR, ROAD→RD, LANE→LN, COURT→CT&lt;br&gt;HIGHWAY→HWY, PARKWAY→PKWY, TRAIL→TRL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="820" y="220" width="250" height="65" as="geometry"/>
+        <mxCell id="an3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Street Type Abbreviation&lt;/b&gt;&lt;br&gt;STREET→ST, AVENUE→AVE, BOULEVARD→BLVD&lt;br&gt;DRIVE→DR, ROAD→RD, LANE→LN, COURT→CT&lt;br&gt;HIGHWAY→HWY, PARKWAY→PKWY, TRAIL→TRL" vertex="1">
+          <mxGeometry height="65" width="250" x="820" y="220" as="geometry" />
         </mxCell>
-        <mxCell id="an4" value="&lt;b&gt;Unit Abbreviation&lt;/b&gt;&lt;br&gt;APARTMENT→APT, SUITE→STE&lt;br&gt;BUILDING→BLDG, FLOOR→FL, ROOM→RM&lt;br&gt;#123 → APT 123" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1090" y="220" width="220" height="65" as="geometry"/>
+        <mxCell id="an4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Unit Abbreviation&lt;/b&gt;&lt;br&gt;APARTMENT→APT, SUITE→STE&lt;br&gt;BUILDING→BLDG, FLOOR→FL, ROOM→RM&lt;br&gt;#123 → APT 123" vertex="1">
+          <mxGeometry height="65" width="220" x="1090" y="220" as="geometry" />
         </mxCell>
-        <mxCell id="an5" value="&lt;b&gt;COUNTY ROAD → CR&lt;/b&gt;&lt;br&gt;(before street type norm)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1330" y="220" width="170" height="35" as="geometry"/>
+        <mxCell id="an5" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;COUNTY ROAD → CR&lt;/b&gt;&lt;br&gt;(before street type norm)" vertex="1">
+          <mxGeometry height="35" width="170" x="1330" y="220" as="geometry" />
         </mxCell>
-        <mxCell id="an6" value="Strip &lt;b&gt;. , -&lt;/b&gt; and collapse spaces" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1280" y="260" width="190" height="30" as="geometry"/>
+        <mxCell id="an6" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;" value="Strip &lt;b&gt;. , -&lt;/b&gt; and collapse spaces" vertex="1">
+          <mxGeometry height="30" width="190" x="1280" y="260" as="geometry" />
         </mxCell>
-        <mxCell id="an_strip_names" value="&lt;b&gt;Strip Leading Names&lt;/b&gt;&lt;br&gt;If addr doesn't start with digit/PO BOX:&lt;br&gt;find first digit pattern, strip words before it&lt;br&gt;(preserves HWY, CR, RR, RT, CMR, etc.)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="820" y="296" width="340" height="45" as="geometry"/>
+        <mxCell id="an_strip_names" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E3F2FD;strokeColor=#6c8ebf;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Strip Leading Names&lt;/b&gt;&lt;br&gt;If addr doesn&#39;t start with digit/PO BOX:&lt;br&gt;find first digit pattern, strip words before it&lt;br&gt;(preserves HWY, CR, RR, RT, CMR, etc.)" vertex="1">
+          <mxGeometry height="45" width="340" x="820" y="296" as="geometry" />
         </mxCell>
 
-        <!-- Arrow: norm → classify -->
-        <mxCell id="a_a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="addr_norm_group" target="addr_classify">
-          <mxGeometry relative="1" as="geometry"/>
+        <!-- Arrow: normalize → classify type -->
+        <mxCell id="a_a1" edge="1" parent="1" source="addr_norm_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#6c8ebf;strokeWidth=2;" target="addr_classify">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- Step 2: address_compare() - classify address type -->
-        <mxCell id="addr_classify" value="&lt;b&gt;Classify Address Type&lt;/b&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="1040" y="380" width="230" height="60" as="geometry"/>
+        <!-- Classify address type -->
+        <mxCell id="addr_classify" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" value="&lt;b&gt;Classify Address Type&lt;/b&gt;" vertex="1">
+          <mxGeometry height="60" width="230" x="1040" y="380" as="geometry" />
         </mxCell>
 
-        <!-- PO Box branch -->
-        <mxCell id="addr_pobox_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#b85450;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="800" y="490" width="340" height="300" as="geometry"/>
+        <!-- PO Box Path -->
+        <mxCell id="addr_pobox_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#b85450;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="300" width="340" x="800" y="490" as="geometry" />
         </mxCell>
-        <mxCell id="addr_pobox_title" value="&lt;b&gt;PO Box Path&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="900" y="495" width="140" height="25" as="geometry"/>
+        <mxCell id="addr_pobox_title" parent="1" style="text;html=1;fontSize=13;fontStyle=1;align=center;" value="&lt;b&gt;PO Box Path&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="140" x="900" y="495" as="geometry" />
         </mxCell>
-        <mxCell id="a_classify_po" value="PO BOX" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" edge="1" parent="1" source="addr_classify" target="addr_pobox_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_classify_po" edge="1" parent="1" source="addr_classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontColor=#b85450;fontStyle=1;fontSize=10;" target="addr_pobox_group" value="PO BOX">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="po1" value="Both PO Box?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="870" y="525" width="160" height="40" as="geometry"/>
+        <mxCell id="po1" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" value="Both PO Box?" vertex="1">
+          <mxGeometry height="40" width="160" x="870" y="525" as="geometry" />
         </mxCell>
-        <mxCell id="po1_no" value="Score=0&lt;br&gt;POBOX_VS_STREET" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="820" y="580" width="110" height="35" as="geometry"/>
+        <mxCell id="po1_no" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" value="Score=0&lt;br&gt;POBOX_VS_STREET" vertex="1">
+          <mxGeometry height="35" width="110" x="820" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="a_po1_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" edge="1" parent="1" source="po1" target="po1_no">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po1_no" edge="1" parent="1" source="po1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" target="po1_no" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="po1b" value="Either box # missing?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="870" y="620" width="180" height="40" as="geometry"/>
+        <mxCell id="po1b" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" value="Either box # missing?" vertex="1">
+          <mxGeometry height="40" width="180" x="870" y="620" as="geometry" />
         </mxCell>
-        <mxCell id="a_po1_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" edge="1" parent="1" source="po1" target="po1b">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po1_yes" edge="1" parent="1" source="po1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" target="po1b" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="po1b_yes" value="Score=0&lt;br&gt;POBOX_MISSING_NUM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="820" y="670" width="120" height="35" as="geometry"/>
+        <mxCell id="po1b_yes" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" value="Score=0&lt;br&gt;POBOX_MISSING_NUM" vertex="1">
+          <mxGeometry height="35" width="120" x="820" y="670" as="geometry" />
         </mxCell>
-        <mxCell id="a_po1b_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" edge="1" parent="1" source="po1b" target="po1b_yes">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po1b_yes" edge="1" parent="1" source="po1b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" target="po1b_yes" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="po2" value="Box numbers match?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="870" y="715" width="170" height="40" as="geometry"/>
+        <mxCell id="po2" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=10;" value="Box numbers match?" vertex="1">
+          <mxGeometry height="40" width="170" x="870" y="715" as="geometry" />
         </mxCell>
-        <mxCell id="a_po1b_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" edge="1" parent="1" source="po1b" target="po2">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po1b_no" edge="1" parent="1" source="po1b" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" target="po2" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="po2_no" value="Score=0&lt;br&gt;POBOX_NUM_MISMATCH" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="820" y="760" width="130" height="35" as="geometry"/>
+        <mxCell id="po2_no" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" value="Score=0&lt;br&gt;POBOX_NUM_MISMATCH" vertex="1">
+          <mxGeometry height="35" width="130" x="820" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="a_po2_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" edge="1" parent="1" source="po2" target="po2_no">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po2_no" edge="1" parent="1" source="po2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" target="po2_no" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="po3" value="&lt;b&gt;Score = min(1.0, 0.92 × city_sim + zip_bonus)&lt;/b&gt;&lt;br&gt;zip_bonus = 0.05 if zips match&lt;br&gt;same = score ≥ 0.90 &amp;amp; city_sim ≥ 0.85" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=9;align=left;spacingLeft=6;" vertex="1" parent="1">
-          <mxGeometry x="960" y="760" width="290" height="40" as="geometry"/>
+        <mxCell id="po3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#b85450;fontSize=9;align=left;spacingLeft=6;" value="&lt;b&gt;Score = min(1.0, 0.92 × city_sim + zip_bonus)&lt;/b&gt;&lt;br&gt;zip_bonus = 0.05 if zips match&lt;br&gt;same = score ≥ 0.90 &amp;amp; city_sim ≥ 0.85" vertex="1">
+          <mxGeometry height="40" width="290" x="960" y="760" as="geometry" />
         </mxCell>
-        <mxCell id="a_po2_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" edge="1" parent="1" source="po2" target="po3">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_po2_yes" edge="1" parent="1" source="po2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" target="po3" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- Street address branch -->
-        <mxCell id="addr_street_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="1180" y="490" width="380" height="550" as="geometry"/>
+        <!-- Street Address Path -->
+        <mxCell id="addr_street_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="550" width="380" x="1180" y="490" as="geometry" />
         </mxCell>
-        <mxCell id="addr_street_title" value="&lt;b&gt;Street Address Path&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="1">
-          <mxGeometry x="1300" y="495" width="160" height="25" as="geometry"/>
+        <mxCell id="addr_street_title" parent="1" style="text;html=1;fontSize=13;fontStyle=1;align=center;" value="&lt;b&gt;Street Address Path&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="160" x="1300" y="495" as="geometry" />
         </mxCell>
-        <mxCell id="a_classify_st" value="STREET" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" edge="1" parent="1" source="addr_classify" target="addr_street_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_classify_st" edge="1" parent="1" source="addr_classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontColor=#82b366;fontStyle=1;fontSize=10;" target="addr_street_group" value="STREET">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="st0" value="Either has house number?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1260" y="525" width="220" height="40" as="geometry"/>
+        <mxCell id="st0" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;" value="Either has house number?" vertex="1">
+          <mxGeometry height="40" width="220" x="1260" y="525" as="geometry" />
         </mxCell>
-
-        <!-- No house number: non-standard path -->
-        <mxCell id="st_nonstandard" value="&lt;b&gt;Non-Standard Path&lt;/b&gt;&lt;br&gt;(military: CMR/PSC/UNIT)&lt;br&gt;&lt;br&gt;addr_sim = max(JW(addr1,addr2), JW(compact1,compact2))&lt;br&gt;score = addr_sim × (0.6 + 0.4 × city_sim)&lt;br&gt;&lt;br&gt;Penalties:&lt;br&gt;  • embedded nums mismatch: −0.10&lt;br&gt;  • zip mismatch: −0.20&lt;br&gt;Bonus:&lt;br&gt;  • all nums match + zip match: +0.50" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="580" width="230" height="150" as="geometry"/>
+        <mxCell id="st_nonstandard" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=9;align=left;spacingLeft=8;" value="&lt;b&gt;Non-Standard Path&lt;/b&gt;&lt;br&gt;(military: CMR/PSC/UNIT)&lt;br&gt;&lt;br&gt;addr_sim = max(JW(addr1,addr2), JW(compact1,compact2))&lt;br&gt;score = addr_sim × (0.6 + 0.4 × city_sim)&lt;br&gt;&lt;br&gt;Penalties:&lt;br&gt;  • embedded nums mismatch: −0.10&lt;br&gt;  • zip mismatch: −0.20&lt;br&gt;Bonus:&lt;br&gt;  • all nums match + zip match: +0.50" vertex="1">
+          <mxGeometry height="150" width="230" x="1200" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="a_st0_no" value="NEITHER" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;fontSize=9;" edge="1" parent="1" source="st0" target="st_nonstandard">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_st0_no" edge="1" parent="1" source="st0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#d6b656;fontSize=9;" target="st_nonstandard" value="NEITHER">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- One missing -->
-        <mxCell id="st_one_missing" value="Score=0&lt;br&gt;MISSING_HOUSE_NUM" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="1440" y="580" width="110" height="35" as="geometry"/>
+        <mxCell id="st_one_missing" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" value="Score=0&lt;br&gt;MISSING_HOUSE_NUM" vertex="1">
+          <mxGeometry height="35" width="110" x="1440" y="580" as="geometry" />
         </mxCell>
-        <mxCell id="a_st0_one" value="ONE" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" edge="1" parent="1" source="st0" target="st_one_missing">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_st0_one" edge="1" parent="1" source="st0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" target="st_one_missing" value="ONE">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- House numbers match -->
-        <mxCell id="st1" value="House numbers match?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1280" y="745" width="200" height="40" as="geometry"/>
+        <mxCell id="st1" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff;strokeColor=#82b366;fontSize=10;" value="House numbers match?" vertex="1">
+          <mxGeometry height="40" width="200" x="1280" y="745" as="geometry" />
         </mxCell>
-        <mxCell id="a_st0_both" value="BOTH" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="st0" target="st1">
+        <mxCell id="a_st0_both" edge="1" parent="1" source="st0" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" target="st1" value="BOTH">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="1370" y="730"/>
-              <mxPoint x="1380" y="730"/>
+              <mxPoint x="1370" y="730" />
+              <mxPoint x="1380" y="730" />
             </Array>
           </mxGeometry>
         </mxCell>
-
-        <mxCell id="st1_no" value="Score=0&lt;br&gt;HOUSE_NUM_MISMATCH" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" vertex="1" parent="1">
-          <mxGeometry x="1440" y="740" width="110" height="35" as="geometry"/>
+        <mxCell id="st1_no" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=9;" value="Score=0&lt;br&gt;HOUSE_NUM_MISMATCH" vertex="1">
+          <mxGeometry height="35" width="110" x="1440" y="740" as="geometry" />
         </mxCell>
-        <mxCell id="a_st1_no" value="NO" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" edge="1" parent="1" source="st1" target="st1_no">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_st1_no" edge="1" parent="1" source="st1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#b85450;fontSize=9;" target="st1_no" value="NO">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Street core comparison -->
-        <mxCell id="st_core" value="&lt;b&gt;street_core_for_match()&lt;/b&gt;&lt;br&gt;Strip: house num, street types,&lt;br&gt;directions, unit tokens&lt;br&gt;→ pure street name" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1220" y="805" width="220" height="65" as="geometry"/>
+        <mxCell id="st_core" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;street_core_for_match()&lt;/b&gt;&lt;br&gt;Strip: house num, street types,&lt;br&gt;directions, unit tokens&lt;br&gt;→ pure street name" vertex="1">
+          <mxGeometry height="65" width="220" x="1220" y="805" as="geometry" />
         </mxCell>
-        <mxCell id="a_st1_yes" value="YES" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" edge="1" parent="1" source="st1" target="st_core">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_st1_yes" edge="1" parent="1" source="st1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;fontSize=9;" target="st_core" value="YES">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <!-- Street formula -->
-        <mxCell id="st_formula" value="&lt;b&gt;street_sim&lt;/b&gt; = max(JW(core1,core2), JW(compact1,compact2))&lt;br&gt;&lt;b&gt;city_sim&lt;/b&gt; = max(JW(city1,city2), JW(compact_cities))&lt;br&gt;&lt;br&gt;&lt;b&gt;score = street_sim × (0.6 + 0.4 × city_sim)&lt;/b&gt;&lt;br&gt;&lt;br&gt;If zip match &amp;amp; score ≥ 0.85: &lt;b&gt;+0.05&lt;/b&gt;&lt;br&gt;If zip mismatch &amp;amp; city_sim &amp;lt; 0.92: &lt;b&gt;×0.75&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;same = street_sim ≥ 0.90 &amp;amp; zip_ok &amp;amp; city_sim ≥ 0.85&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;" vertex="1" parent="1">
-          <mxGeometry x="1200" y="890" width="340" height="130" as="geometry"/>
+        <mxCell id="st_formula" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;align=left;spacingLeft=10;" value="&lt;b&gt;street_sim&lt;/b&gt; = max(JW(core1,core2), JW(compact1,compact2))&lt;br&gt;&lt;b&gt;city_sim&lt;/b&gt; = max(JW(city1,city2), JW(compact_cities))&lt;br&gt;&lt;br&gt;&lt;b&gt;score = street_sim × (0.6 + 0.4 × city_sim)&lt;/b&gt;&lt;br&gt;&lt;br&gt;If zip match &amp;amp; score ≥ 0.85: &lt;b&gt;+0.05&lt;/b&gt;&lt;br&gt;If zip mismatch &amp;amp; city_sim &amp;lt; 0.92: &lt;b&gt;×0.75&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;same = street_sim ≥ 0.90 &amp;amp; zip_ok &amp;amp; city_sim ≥ 0.85&lt;/b&gt;" vertex="1">
+          <mxGeometry height="130" width="340" x="1200" y="890" as="geometry" />
         </mxCell>
-        <mxCell id="a_core_to_formula" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1.5;" edge="1" parent="1" source="st_core" target="st_formula">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="a_core_to_formula" edge="1" parent="1" source="st_core" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#82b366;strokeWidth=1.5;" target="st_formula">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- ================================================================ -->
-        <!-- GOOGLE ADDRESS API POST-PROCESSING                                -->
-        <!-- ================================================================ -->
-        <mxCell id="google_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1060" width="1100" height="210" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- DATA QUALITY GATE                                             -->
+        <!-- ============================================================ -->
+        <mxCell id="dq_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFEBEE;strokeColor=#C62828;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="160" width="1100" x="360" y="1280" as="geometry" />
         </mxCell>
-        <mxCell id="google_title" value="&lt;b&gt;Address API Override — Post-Processing&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;fontColor=#004D40;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1065" width="560" height="25" as="geometry"/>
+        <mxCell id="dq_title" parent="1" style="text;html=1;fontSize=14;align=center;fontColor=#B71C1C;" value="&lt;b&gt;Data Quality Gate — _needs_review_override()&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="560" x="610" y="1285" as="geometry" />
         </mxCell>
-
-        <mxCell id="google_filter" value="&lt;b&gt;Filter:&lt;/b&gt; SSN match (ssn_match=100) AND&lt;br&gt;  addr_score 15–65 (GOOGLE_ADDR_SCORE_MIN/MAX)&lt;br&gt;  &lt;b&gt;OR zero-score rule:&lt;/b&gt; score=0 but zips match,&lt;br&gt;  all embedded nums match, both have ≥1 number" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1100" width="320" height="65" as="geometry"/>
+        <mxCell id="dq_checks" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#C62828;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Canvas fields:&lt;/b&gt; EMPTY_NAME, EMPTY_ADDRESS, EMPTY_CITY, EMPTY_STATE, EMPTY_ZIP,&lt;br&gt;UNKNOWN_ADDRESS (regex), UNKNOWN_CITY, UNKNOWN_NAME&lt;br&gt;&lt;br&gt;&lt;b&gt;DEC fields (when matched):&lt;/b&gt; DEC_EMPTY_NAME, DEC_EMPTY_ADDRESS, DEC_EMPTY_CITY,&lt;br&gt;DEC_EMPTY_STATE, DEC_EMPTY_ZIP, DEC_UNKNOWN_ADDRESS, DEC_UNKNOWN_CITY" vertex="1">
+          <mxGeometry height="80" width="530" x="380" y="1315" as="geometry" />
         </mxCell>
-
-        <mxCell id="google_validate" value="&lt;b&gt;google_validate_address()&lt;/b&gt;&lt;br&gt;1. Check in-memory cache (pre-loaded from SQLite)&lt;br&gt;2. Call Google Address Validation API if miss&lt;br&gt;3. Persist to google_address_lookups table&lt;br&gt;4. Return: standardized (addr,city,state,zip) + verdict JSON" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1175" width="340" height="85" as="geometry"/>
+        <mxCell id="dq_outcome" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCDD2;strokeColor=#C62828;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;If any check fails:&lt;/b&gt;&lt;br&gt;• recommendation = NEEDS REVIEW (immediate, not deferred)&lt;br&gt;• Skips API enrichment — scores stay as-is&lt;br&gt;• Also forced for UNKNOWN_ADDRESS (addr reason check)&lt;br&gt;&lt;br&gt;&lt;b&gt;If all checks pass:&lt;/b&gt;&lt;br&gt;• recommendation = None (deferred to final classification)" vertex="1">
+          <mxGeometry height="100" width="390" x="940" y="1315" as="geometry" />
         </mxCell>
-
-        <mxCell id="google_cache" value="&lt;b&gt;Persistent Cache: google_address_lookups&lt;/b&gt;&lt;br&gt;Key: (input_address, city, state, zip)&lt;br&gt;success → cached permanently (never re-called)&lt;br&gt;failed → cached permanently&lt;br&gt;quota_error → retried on next run&lt;br&gt;&lt;b&gt;Run 2+: 0 API calls — all from cache&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="640" y="1100" width="330" height="95" as="geometry"/>
+        <mxCell id="a_boost_to_dq" edge="1" parent="1" source="boost_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C62828;strokeWidth=2;dashed=1;" target="dq_group">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
-
-        <mxCell id="google_rescore" value="&lt;b&gt;Re-score &amp;amp; Reclassify&lt;/b&gt;&lt;br&gt;1. Save originals → before_lookup_* columns&lt;br&gt;2. Replace Canvas + DEC addresses with standardized&lt;br&gt;3. Re-run address_compare() on standardized pair&lt;br&gt;4. If |new_score − old_score| ≥ 10 → override &amp;amp; reclassify" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="640" y="1205" width="330" height="55" as="geometry"/>
+        <mxCell id="a_addr_to_dq" edge="1" parent="1" source="st_formula" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#C62828;strokeWidth=2;dashed=1;" target="dq_group">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="google_audit" value="&lt;b&gt;Audit Columns (per record):&lt;/b&gt;&lt;br&gt;before_lookup_address/city/state/zip (Canvas)&lt;br&gt;before_lookup_dec_address/city/state/zip (DEC)&lt;br&gt;address_looked_up, dec_address_looked_up&lt;br&gt;canvas_lookup_verdict, dec_lookup_verdict (JSON)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=9;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="1000" y="1100" width="320" height="80" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- API SCORE ENRICHMENT (Claude + Google)                        -->
+        <!-- ============================================================ -->
+        <mxCell id="api_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="310" width="1100" x="360" y="1480" as="geometry" />
+        </mxCell>
+        <mxCell id="api_title" parent="1" style="text;html=1;fontSize=14;align=center;fontColor=#BF360C;" value="&lt;b&gt;API Score Enrichment — Update Scores Only (no classification yet)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="700" x="560" y="1485" as="geometry" />
         </mxCell>
 
-        <!-- Arrow: scoring to Google -->
-        <mxCell id="a_addr_to_google" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00897B;strokeWidth=2;dashed=1;" edge="1" parent="1" source="st_formula" target="google_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <!-- Claude API sub-section -->
+        <mxCell id="claude_sub" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="130" width="500" x="380" y="1515" as="geometry" />
+        </mxCell>
+        <mxCell id="claude_title" parent="1" style="text;html=1;fontSize=12;align=center;fontColor=#BF360C;" value="&lt;b&gt;Claude API — Name Score Override&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="400" x="430" y="1520" as="geometry" />
+        </mxCell>
+        <mxCell id="claude_filter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Filter:&lt;/b&gt; SSN match (ssn_match=100) AND&lt;br&gt;  name_score between API_SCORE_MIN–API_SCORE_MAX&lt;br&gt;  (defaults: 15–70, configurable in BA_CONFIG)" vertex="1">
+          <mxGeometry height="50" width="230" x="395" y="1545" as="geometry" />
+        </mxCell>
+        <mxCell id="claude_action" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Action:&lt;/b&gt; Send name pairs to Claude Sonnet 4.5&lt;br&gt;in batches of 20 for semantic evaluation&lt;br&gt;&lt;br&gt;&lt;b&gt;Result:&lt;/b&gt; Update name_score only&lt;br&gt;(no classification, no stat changes)" vertex="1">
+          <mxGeometry height="80" width="230" x="640" y="1545" as="geometry" />
         </mxCell>
 
-        <!-- ================================================================ -->
-        <!-- FINAL CLASSIFICATION (Bottom)                                    -->
-        <!-- ================================================================ -->
-        <mxCell id="final_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1300" width="1100" height="200" as="geometry"/>
+        <!-- Google API sub-section -->
+        <mxCell id="google_sub" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="130" width="1060" x="380" y="1650" as="geometry" />
         </mxCell>
-        <mxCell id="final_title" value="&lt;b&gt;Final Classification — Configurable BUCKET_RULES (from Snowflake BA_CONFIG)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
-          <mxGeometry x="420" y="1305" width="700" height="25" as="geometry"/>
+        <mxCell id="google_title" parent="1" style="text;html=1;fontSize=12;align=center;fontColor=#004D40;" value="&lt;b&gt;Google Address Validation API — Address Score Override&lt;/b&gt;" vertex="1">
+          <mxGeometry height="20" width="500" x="650" y="1655" as="geometry" />
         </mxCell>
-
-        <mxCell id="fc_classify" value="&lt;b&gt;_classify(name_score, addr_score, bucket_rules)&lt;/b&gt;&lt;br&gt;For each bucket: if name_min ≤ name_score ≤ name_max AND addr_min ≤ addr_score ≤ addr_max → return bucket&lt;br&gt;Fallback: &lt;b&gt;NEEDS REVIEW&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=11;align=center;" vertex="1" parent="1">
-          <mxGeometry x="350" y="1335" width="850" height="50" as="geometry"/>
+        <mxCell id="google_filter" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Filter:&lt;/b&gt; SSN match (ssn_match=100) AND&lt;br&gt;  addr_score 15–65 (GOOGLE_ADDR_SCORE_MIN/MAX)&lt;br&gt;  &lt;b&gt;OR zero-score rule:&lt;/b&gt; score=0 but zips match,&lt;br&gt;  all embedded nums match, both have ≥1 number" vertex="1">
+          <mxGeometry height="65" width="310" x="395" y="1680" as="geometry" />
         </mxCell>
-
-        <mxCell id="fc1" value="&lt;b&gt;NEW BA AND NEW ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 0–0, addr 0–0&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: NEW_BA_NEW_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="280" y="1400" width="230" height="55" as="geometry"/>
+        <mxCell id="google_validate" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;google_validate_address()&lt;/b&gt;&lt;br&gt;1. Check in-memory cache (pre-loaded from Snowflake)&lt;br&gt;2. Call Google Address Validation API if miss&lt;br&gt;3. Persist to google_address_lookups table&lt;br&gt;4. Return: standardized (addr,city,state,zip) + verdict" vertex="1">
+          <mxGeometry height="80" width="330" x="720" y="1680" as="geometry" />
         </mxCell>
-
-        <mxCell id="fc2" value="&lt;b&gt;EXISTING BA ADD NEW ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 100–100, addr 0–0&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: EXISTING_BA_NEW_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="530" y="1400" width="260" height="55" as="geometry"/>
+        <mxCell id="google_rescore" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B2DFDB;strokeColor=#00897B;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Re-score (score update only):&lt;/b&gt;&lt;br&gt;1. Replace Canvas+DEC addrs with standardized&lt;br&gt;2. Re-run address_compare() on standardized pair&lt;br&gt;3. Update address_score&lt;br&gt;(no classification, no stat changes)" vertex="1">
+          <mxGeometry height="80" width="300" x="1060" y="1680" as="geometry" />
+        </mxCell>
+        <mxCell id="a_dq_to_api" edge="1" parent="1" source="dq_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#E65100;strokeWidth=2;" target="api_group" value="scores (not yet classified)">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="fc3" value="&lt;b&gt;EXISTING BA AND EXISTING ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 100–100, addr 100–100&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: EXISTING_BA_EXISTING_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="810" y="1400" width="280" height="55" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- FINAL CLASSIFICATION — Single Pass                            -->
+        <!-- ============================================================ -->
+        <mxCell id="final_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;" value="" vertex="1">
+          <mxGeometry height="200" width="1100" x="360" y="1830" as="geometry" />
+        </mxCell>
+        <mxCell id="final_title" parent="1" style="text;html=1;fontSize=14;align=center;" value="&lt;b&gt;Final Classification — Single Pass with Best Available Scores&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="700" x="560" y="1835" as="geometry" />
+        </mxCell>
+        <mxCell id="fc_classify" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=11;align=center;" value="&lt;b&gt;_classify(name_score, addr_score, bucket_rules)&lt;/b&gt;&lt;br&gt;For each bucket: if name_min ≤ name_score ≤ name_max AND addr_min ≤ addr_score ≤ addr_max → return bucket&lt;br&gt;Fallback: &lt;b&gt;NEEDS REVIEW&lt;/b&gt;&lt;br&gt;&lt;br&gt;Records already forced to NEEDS REVIEW by data quality gate are &lt;b&gt;not re-classified&lt;/b&gt; (recommendation ≠ None)" vertex="1">
+          <mxGeometry height="65" width="850" x="460" y="1865" as="geometry" />
+        </mxCell>
+        <mxCell id="fc1" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0E0E0;strokeColor=#666;fontSize=10;" value="&lt;b&gt;NEW BA AND NEW ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 0–0, addr 0–0&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: NEW_BA_NEW_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="230" x="390" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="fc2" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" value="&lt;b&gt;EXISTING BA ADD NEW ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 100–100, addr 0–0&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: EXISTING_BA_NEW_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="260" x="640" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="fc3" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=10;" value="&lt;b&gt;EXISTING BA AND EXISTING ADDRESS&lt;/b&gt;&lt;br&gt;Defaults: name 100–100, addr 100–100&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Config: EXISTING_BA_EXISTING_ADDR_{MIN|MAX}_{NAME|ADDR}_SCORE&lt;/font&gt;" vertex="1">
+          <mxGeometry height="55" width="280" x="920" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="fc4" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" value="&lt;b&gt;NEEDS REVIEW&lt;/b&gt;&lt;br&gt;(implicit fallback)" vertex="1">
+          <mxGeometry height="55" width="140" x="1220" y="1940" as="geometry" />
+        </mxCell>
+        <mxCell id="fc_note" parent="1" style="text;html=1;fontSize=10;fontColor=#666;align=center;" value="Default ranges are intentionally narrow (0–0 or 100–100) — most records go to NEEDS REVIEW until ranges are tuned via Snowflake BA_CONFIG table. 12 config keys control the 3 bucket ranges." vertex="1">
+          <mxGeometry height="25" width="860" x="460" y="2000" as="geometry" />
+        </mxCell>
+        <mxCell id="a_api_to_final" edge="1" parent="1" source="api_group" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#666;strokeWidth=2;" target="final_group" value="final scores">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <mxCell id="fc4" value="&lt;b&gt;NEEDS REVIEW&lt;/b&gt;&lt;br&gt;(implicit fallback)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=10;" vertex="1" parent="1">
-          <mxGeometry x="1110" y="1400" width="140" height="55" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- TRUST DETECTION                                               -->
+        <!-- ============================================================ -->
+        <mxCell id="trust_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;arcSize=8;" value="" vertex="1">
+          <mxGeometry height="140" width="1100" x="360" y="2050" as="geometry" />
+        </mxCell>
+        <mxCell id="trust_title" parent="1" style="text;html=1;fontSize=14;align=center;fontColor=#8B5E3C;" value="&lt;b&gt;Trust Detection (is_trust flag — set before scoring)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="560" x="610" y="2055" as="geometry" />
+        </mxCell>
+        <mxCell id="trust_regex" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Regex check on ALL of these fields (any match → is_trust=1):&lt;/b&gt;&lt;br&gt;Canvas name, Canvas address, DEC name (hdrname), DEC address (addraddress)&lt;br&gt;&lt;br&gt;TRUST | TRUSTEE | TRUSTEES | TRUSTEESHIP | TTEE | LIVING TRUST | FAMILY TRUST&lt;br&gt;REVOCABLE TRUST | IRREVOCABLE TRUST | TESTAMENTARY | ESTATE OF | DECEDENT" vertex="1">
+          <mxGeometry height="80" width="600" x="380" y="2085" as="geometry" />
+        </mxCell>
+        <mxCell id="trust_output" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0C8B0;strokeColor=#D4A880;fontSize=10;align=left;spacingLeft=8;" value="&lt;b&gt;Trust mode normalization:&lt;/b&gt;&lt;br&gt;When trust detected, normalize_name/address&lt;br&gt;skip all processing — just UPPERCASE.&lt;br&gt;Produces composite trust score.&lt;br&gt;&lt;br&gt;Keywords from Snowflake BA_LOOKUP or defaults" vertex="1">
+          <mxGeometry height="80" width="420" x="1010" y="2085" as="geometry" />
         </mxCell>
 
-        <mxCell id="fc_note" value="Default ranges are intentionally narrow (0–0 or 100–100) — most records go to NEEDS REVIEW until ranges are tuned via Snowflake BA_CONFIG table. 12 config keys control the 3 bucket ranges." style="text;html=1;fontSize=10;fontColor=#666;align=center;" vertex="1" parent="1">
-          <mxGeometry x="350" y="1465" width="860" height="25" as="geometry"/>
+        <!-- ============================================================ -->
+        <!-- PIPELINE FLOW LEGEND                                          -->
+        <!-- ============================================================ -->
+        <mxCell id="legend_group" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;dashed=1;dashPattern=4 3;" value="" vertex="1">
+          <mxGeometry height="210" width="1100" x="360" y="2210" as="geometry" />
         </mxCell>
-
-        <!-- Arrows from scoring to final -->
-        <mxCell id="a_name_to_final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9673a6;strokeWidth=2;dashed=1;" edge="1" parent="1" source="nc_formula" target="final_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="legend_title" parent="1" style="text;html=1;fontSize=14;align=center;" value="&lt;b&gt;Pipeline Flow (sequential)&lt;/b&gt;" vertex="1">
+          <mxGeometry height="25" width="560" x="610" y="2215" as="geometry" />
         </mxCell>
-        <mxCell id="a_google_to_final" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#00897B;strokeWidth=2;dashed=1;" edge="1" parent="1" source="google_group" target="final_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="lp0" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;&lt;font color=&quot;#8B5E3C&quot;&gt;0.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#8B5E3C&quot;&gt;&lt;b&gt;Trust Detection:&lt;/b&gt; regex on Canvas name/address → is_trust flag (affects normalization mode for scoring)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2245" as="geometry" />
         </mxCell>
-
-        <!-- ================================================================ -->
-        <!-- TRUST DETECTION                                                  -->
-        <!-- ================================================================ -->
-        <mxCell id="trust_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;arcSize=8;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1510" width="1100" height="140" as="geometry"/>
+        <mxCell id="lp1" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;1.&lt;/b&gt; &lt;b&gt;Score:&lt;/b&gt; name_compare() → name_score (0–100), address_compare() → addr_score (0–100), same_address flag" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2268" as="geometry" />
         </mxCell>
-        <mxCell id="trust_title" value="&lt;b&gt;Trust Detection (is_trust flag)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;fontColor=#8B5E3C;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1515" width="560" height="25" as="geometry"/>
+        <mxCell id="lp2" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;&lt;font color=&quot;#5C6BC0&quot;&gt;2.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#5C6BC0&quot;&gt;&lt;b&gt;Address-Name Boost:&lt;/b&gt; if name_score &amp;lt; 95, check supplementary sources (DEC contact, C/O, ATTN) → best wins, cap 0.95&lt;/font&gt;" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2291" as="geometry" />
         </mxCell>
-
-        <mxCell id="trust_regex" value="&lt;b&gt;Regex check on ALL of these fields (any match → is_trust=1):&lt;/b&gt;&lt;br&gt;Canvas name, Canvas address, DEC name (hdrname), DEC address (addraddress)&lt;br&gt;&lt;br&gt;TRUST | TRUSTEE | TRUSTEES | TRUSTEESHIP | TTEE | LIVING TRUST | FAMILY TRUST&lt;br&gt;REVOCABLE TRUST | IRREVOCABLE TRUST | TESTAMENTARY | ESTATE OF | DECEDENT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FEF0E0;strokeColor=#D4A880;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1545" width="600" height="80" as="geometry"/>
+        <mxCell id="lp2b" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;&lt;font color=&quot;#C62828&quot;&gt;3.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#C62828&quot;&gt;&lt;b&gt;Data Quality Gate:&lt;/b&gt; _needs_review_override() — bad data → immediate NEEDS REVIEW; good data → deferred (rec=None)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2314" as="geometry" />
         </mxCell>
-
-        <mxCell id="trust_output" value="&lt;b&gt;Trust mode normalization:&lt;/b&gt;&lt;br&gt;When trust detected, normalize_name/address&lt;br&gt;skip all processing — just UPPERCASE.&lt;br&gt;Produces composite trust score.&lt;br&gt;&lt;br&gt;Keywords from Snowflake BA_LOOKUP or defaults" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0C8B0;strokeColor=#D4A880;fontSize=10;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="900" y="1545" width="420" height="80" as="geometry"/>
+        <mxCell id="lp3" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;&lt;font color=&quot;#E65100&quot;&gt;4a.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#E65100&quot;&gt;&lt;b&gt;Claude API:&lt;/b&gt; ambiguous name_score 15–70 with SSN match → Claude Sonnet 4.5 → update name_score only&lt;/font&gt;" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2337" as="geometry" />
         </mxCell>
-
-        <!-- Arrow: final → trust -->
-        <mxCell id="a_final_to_trust" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#D4A880;strokeWidth=2;dashed=1;" edge="1" parent="1" source="final_group" target="trust_group">
-          <mxGeometry relative="1" as="geometry"/>
+        <mxCell id="lp4" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;&lt;font color=&quot;#00897B&quot;&gt;4b.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#00897B&quot;&gt;&lt;b&gt;Google API:&lt;/b&gt; ambiguous addr_score 15–65 (or zero-score rule) with SSN match → standardize → re-score → update addr_score only&lt;/font&gt;" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2360" as="geometry" />
         </mxCell>
-
-        <!-- ================================================================ -->
-        <!-- PIPELINE FLOW LEGEND                                              -->
-        <!-- ================================================================ -->
-        <mxCell id="legend_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666;arcSize=6;dashed=1;dashPattern=4 3;" vertex="1" parent="1">
-          <mxGeometry x="250" y="1670" width="1100" height="190" as="geometry"/>
+        <mxCell id="lp5" parent="1" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" value="&lt;b&gt;5.&lt;/b&gt; &lt;b&gt;Classify:&lt;/b&gt; single pass — _classify(name_score, addr_score, BUCKET_RULES) with final enriched scores → 3 buckets + NEEDS REVIEW" vertex="1">
+          <mxGeometry height="20" width="1050" x="380" y="2383" as="geometry" />
         </mxCell>
-        <mxCell id="legend_title" value="&lt;b&gt;Pipeline Flow (sequential)&lt;/b&gt;" style="text;html=1;fontSize=14;align=center;" vertex="1" parent="1">
-          <mxGeometry x="500" y="1675" width="560" height="25" as="geometry"/>
+        <mxCell id="legend_footer" parent="1" style="text;html=1;fontSize=10;fontColor=#999;align=center;" value="All scores rounded to nearest 5  ·  Human review required — no auto-merge  ·  Google cache: 0 API calls on re-run  ·  Config from Snowflake BA_CONFIG" vertex="1">
+          <mxGeometry height="15" width="800" x="510" y="2405" as="geometry" />
         </mxCell>
-
-        <mxCell id="lp1" value="&lt;b&gt;1.&lt;/b&gt; &lt;b&gt;Score:&lt;/b&gt; name_compare() → name_score (0–100), address_compare() → addr_score (0–100), same_address flag" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1705" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="lp2" value="&lt;b&gt;&lt;font color=&quot;#5C6BC0&quot;&gt;2.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#5C6BC0&quot;&gt;&lt;b&gt;Address-Name Boost:&lt;/b&gt; if name_score &amp;lt; 95, check supplementary sources (DEC contact, C/O, ATTN) → best wins, cap 0.95&lt;/font&gt;" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1728" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="lp3" value="&lt;b&gt;3.&lt;/b&gt; &lt;b&gt;Classify:&lt;/b&gt; _classify(name_score, addr_score, BUCKET_RULES) — 3 configurable buckets + NEEDS REVIEW fallback" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1751" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="lp4" value="&lt;b&gt;&lt;font color=&quot;#e67e22&quot;&gt;4.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#e67e22&quot;&gt;&lt;b&gt;Name API Override:&lt;/b&gt; name_score 15–70 with SSN match → Claude Sonnet 4.5 batches of 20 → override score → reclassify&lt;/font&gt;" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1774" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="lp5" value="&lt;b&gt;&lt;font color=&quot;#00897B&quot;&gt;5.&lt;/font&gt;&lt;/b&gt; &lt;font color=&quot;#00897B&quot;&gt;&lt;b&gt;Google Address Override:&lt;/b&gt; addr_score 15–65 (or zero-score rule) with SSN match → validate/standardize → re-score → reclassify if Δ ≥ 10&lt;/font&gt;" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1797" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="lp6" value="&lt;b&gt;6.&lt;/b&gt; &lt;b&gt;Trust Detection:&lt;/b&gt; regex on Canvas name/address + DEC name/address → is_trust flag → trust-mode re-scoring" style="text;html=1;fontSize=11;align=left;spacingLeft=8;" vertex="1" parent="1">
-          <mxGeometry x="270" y="1820" width="1050" height="20" as="geometry"/>
-        </mxCell>
-        <mxCell id="legend_footer" value="All scores rounded to nearest 5  ·  Human review required — no auto-merge  ·  Google cache: 0 API calls on re-run  ·  Config from Snowflake BA_CONFIG" style="text;html=1;fontSize=10;fontColor=#999;align=center;" vertex="1" parent="1">
-          <mxGeometry x="400" y="1843" width="800" height="15" as="geometry"/>
-        </mxCell>
-
       </root>
     </mxGraphModel>
   </diagram>

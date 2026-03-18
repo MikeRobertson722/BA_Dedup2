@@ -1,6 +1,6 @@
 """
-Canvas-to-DEC BA Matching Script
-Compares Canvas BA records against DEC BA Master in database.
+Source-to-DEC BA Matching Script
+Compares Source BA records against DEC BA Master in database.
 Scores BA match % (by SSN blocking) and Address match % separately.
 Outputs results to import_merge_matches table.
 """
@@ -26,7 +26,7 @@ from snowflake_conn import get_snowflake_connection
 from config_loader import load_config, load_lookups
 
 # Paths
-CANVAS_FILE = 'input/CANVAS_BA_MASTER_.xlsx'
+SOURCE_FILE = 'input/SOURCE_BA_MASTER_.xlsx'
 
 # Snowflake toggle
 SNOWFLAKE_ENABLED = os.environ.get('SNOWFLAKE_ENABLED', 'false').lower() == 'true'
@@ -421,10 +421,10 @@ def _needs_review_override(name, addr, city, state, zipcode,
                            dec_state=None, dec_zip=None):
     """Return reason string if record has bad data requiring review, else None.
 
-    Checks canvas fields (and optionally DEC fields) for: empty/null name or
+    Checks source fields (and optionally DEC fields) for: empty/null name or
     address, unknown city, empty city/state/zip, unknown address patterns.
     """
-    # --- Canvas fields ---
+    # --- Source fields ---
     name_s = safe_str(name).strip()
     addr_s = safe_str(addr).strip()
     city_s = safe_str(city).strip()
@@ -816,7 +816,7 @@ def _build_name_detail(n1_detail, n2_detail, match_detail):
     """Build the name detail strings from collected lists."""
     norm_parts = []
     if n1_detail:
-        norm_parts.append(f"canvas: {'; '.join(n1_detail)}")
+        norm_parts.append(f"source: {'; '.join(n1_detail)}")
     if n2_detail:
         norm_parts.append(f"dec: {'; '.join(n2_detail)}")
     return {
@@ -871,7 +871,7 @@ def address_compare(addr1, city1, zip1, addr2, city2, zip2,
         return result
 
     # Placeholder / unknown address → score 0 (check before empty guards
-    # so "canvas empty + DEC unknown" doesn't slip through as ONE_EMPTY)
+    # so "source empty + DEC unknown" doesn't slip through as ONE_EMPTY)
     if ((addr1_norm and _UNKNOWN_ADDR_RE.search(addr1_norm)) or
             (addr2_norm and _UNKNOWN_ADDR_RE.search(addr2_norm))):
         if match_detail is not None:
@@ -1050,7 +1050,7 @@ def _build_addr_detail(a1_detail, a2_detail, match_detail):
     """Build the address detail strings from collected lists."""
     norm_parts = []
     if a1_detail:
-        norm_parts.append(f"canvas: {'; '.join(a1_detail)}")
+        norm_parts.append(f"source: {'; '.join(a1_detail)}")
     if a2_detail:
         norm_parts.append(f"dec: {'; '.join(a2_detail)}")
     return {
@@ -1098,7 +1098,7 @@ def api_override_name_scores(pairs):
     """Send ambiguous name pairs to Claude API for semantic evaluation.
 
     Args:
-        pairs: list of (index_into_results, canvas_name, dec_name)
+        pairs: list of (index_into_results, source_name, dec_name)
     Returns:
         dict mapping result index -> new score (0-100)
     """
@@ -1276,17 +1276,17 @@ def google_validate_address(address, city, state, zip_code):
 def google_override_address_scores(pairs):
     """Send ambiguous address pairs to Google Address Validation API.
 
-    For each pair, validates both Canvas and DEC addresses, then re-runs
+    For each pair, validates both Source and DEC addresses, then re-runs
     address_compare() on the standardized forms.
 
     Args:
-        pairs: list of (index, canvas_addr, canvas_city, canvas_state, canvas_zip,
-                        canvas_id, canvas_addrseq,
+        pairs: list of (index, source_addr, source_city, source_state, source_zip,
+                        source_id, source_addrseq,
                         dec_addr, dec_city, dec_state, dec_zip,
                         dec_hdrcode, dec_addrsubcode, original_score)
     Returns:
         dict mapping result index -> override info dict with keys:
-        new_score, same_address, canvas_std, canvas_verdict,
+        new_score, same_address, source_std, source_verdict,
         dec_std, dec_verdict, score_changed
     """
     global _google_api_calls
@@ -1303,7 +1303,7 @@ def google_override_address_scores(pairs):
          d_addr, d_city, d_state, d_zip, d_hdrcode, d_addrsubcode,
          orig_score) = pair
 
-        # Validate Canvas address
+        # Validate Source address
         c_result = google_validate_address(
             c_addr, c_city, c_state, c_zip)
         if c_result['status'] == 'quota_error':
@@ -1322,8 +1322,8 @@ def google_override_address_scores(pairs):
 
         # Build override entry for this pair (even if score doesn't change)
         entry = {
-            'canvas_std': c_result['standardized'],
-            'canvas_verdict': c_result['verdict'],
+            'source_std': c_result['standardized'],
+            'source_verdict': c_result['verdict'],
             'dec_std': d_result['standardized'],
             'dec_verdict': d_result['verdict'],
         }
@@ -1419,6 +1419,19 @@ def _write_results_to_snowflake(results_df, sf_conn, run_id):
                 cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN {col} VARCHAR")
             except Exception:
                 pass  # column already exists
+    # Migrate CANVAS_* columns to SOURCE_* (idempotent — fails silently if already renamed)
+    for old_col, new_col in (
+        ('CANVAS_NAME', 'SOURCE_NAME'), ('CANVAS_ADDRESS', 'SOURCE_ADDRESS'),
+        ('CANVAS_CITY', 'SOURCE_CITY'), ('CANVAS_STATE', 'SOURCE_STATE'),
+        ('CANVAS_ZIP', 'SOURCE_ZIP'), ('CANVAS_ADDRSEQ', 'SOURCE_ADDRSEQ'),
+        ('CANVAS_ID', 'SOURCE_ID'), ('CANVAS_SSN', 'SOURCE_SSN'),
+        ('CANVAS_LOOKUP_VERDICT', 'SOURCE_LOOKUP_VERDICT'),
+    ):
+        for tbl in ('IMPORT_MERGE_MATCHES', 'IMPORT_MERGE_MATCHES_ARCHIVE'):
+            try:
+                cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} RENAME COLUMN {old_col} TO {new_col}")
+            except Exception:
+                pass  # column already renamed or doesn't exist
     # Archive current results before truncating
     cur.execute("""
         INSERT INTO BA_PROCESS.IMPORT_MERGE_MATCHES_ARCHIVE
@@ -1456,7 +1469,7 @@ def main():
     global NAME_SUFFIXES, STATE_ABBREVS, BAD_SSNS
 
     print('=' * 80)
-    print('CANVAS-TO-DEC BA MATCHING')
+    print('SOURCE-TO-DEC BA MATCHING')
     print('=' * 80)
 
     # 0. Snowflake connection (optional)
@@ -1543,19 +1556,19 @@ def main():
     # Generate run_id for this execution
     run_id = time.strftime('%Y%m%d_%H%M%S')
 
-    # 1. Read Canvas data
+    # 1. Read Source data
     if sf_conn:
-        print('\nReading Canvas data from Snowflake IMPORT_BA_DATA...')
-        canvas_df = pd.read_sql('SELECT * FROM IMPORT_BA_DATA', sf_conn)
-        canvas_df = canvas_df.fillna('')
+        print('\nReading Source data from Snowflake IMPORT_BA_DATA...')
+        source_df = pd.read_sql('SELECT * FROM IMPORT_BA_DATA', sf_conn)
+        source_df = source_df.fillna('')
         # Snowflake returns uppercase column names — normalise to match Excel expectations
-        canvas_df.columns = [c.upper() for c in canvas_df.columns]
-        print(f'Loaded {len(canvas_df):,} Canvas records from Snowflake')
+        source_df.columns = [c.upper() for c in source_df.columns]
+        print(f'Loaded {len(source_df):,} Source records from Snowflake')
     else:
-        print(f'\nReading Canvas file: {CANVAS_FILE}')
-        canvas_df = pd.read_excel(CANVAS_FILE, dtype=str)
-        canvas_df = canvas_df.fillna('')
-        print(f'Loaded {len(canvas_df):,} Canvas records from Excel')
+        print(f'\nReading Source file: {SOURCE_FILE}')
+        source_df = pd.read_excel(SOURCE_FILE, dtype=str)
+        source_df = source_df.fillna('')
+        print(f'Loaded {len(source_df):,} Source records from Excel')
 
     # 2. Load DEC records into memory dict keyed by clean SSN
     print(f'\nLoading DEC records from Snowflake Enertia views...')
@@ -1567,7 +1580,7 @@ def main():
     print(f'Unique DEC SSNs: {len(dec_by_ssn):,}')
 
 
-    # 4. Process each Canvas record
+    # 4. Process each Source record
     results = []
     stats = {b['stat']: 0 for b in BUCKET_RULES}
     stats['needs_review'] = 0
@@ -1579,34 +1592,34 @@ def main():
     _trust_re = re.compile(r'\b(' + _trust_pattern + r')\b', re.IGNORECASE)
 
     start = time.time()
-    total = len(canvas_df)
+    total = len(source_df)
 
-    for idx, row in canvas_df.iterrows():
-        canvas_ssn_raw = row.get('SSN', '')
-        canvas_ssn = clean_ssn(canvas_ssn_raw)
-        canvas_name = row.get('ENTITY_LIST_NAME', '') or row.get('HDRNAME', '')
-        canvas_addr = row.get('ADDRADDRESS', '')
-        canvas_city = row.get('ADDRCITY', '')
-        canvas_state = row.get('ADDRSTATE', '')
-        canvas_zip = row.get('ADDRZIPCODE', '')
-        canvas_id = row.get('ID', '')
-        canvas_addrseq = row.get('ADDRSEQ', '')
+    for idx, row in source_df.iterrows():
+        source_ssn_raw = row.get('SSN', '')
+        source_ssn = clean_ssn(source_ssn_raw)
+        source_name = row.get('ENTITY_LIST_NAME', '') or row.get('HDRNAME', '')
+        source_addr = row.get('ADDRADDRESS', '')
+        source_city = row.get('ADDRCITY', '')
+        source_state = row.get('ADDRSTATE', '')
+        source_zip = row.get('ADDRZIPCODE', '')
+        source_id = row.get('ID', '')
+        source_addrseq = row.get('ADDRSEQ', '')
 
         # Store digits-only SSN (cleaned of dashes, spaces, special chars)
-        canvas_ssn_digits = re.sub(r'[^0-9]', '', str(canvas_ssn_raw)) if canvas_ssn_raw else ''
+        source_ssn_digits = re.sub(r'[^0-9]', '', str(source_ssn_raw)) if source_ssn_raw else ''
 
-        is_trust = 1 if (_trust_re.search(str(canvas_name))
-                         or _trust_re.search(str(canvas_addr))) else 0
+        is_trust = 1 if (_trust_re.search(str(source_name))
+                         or _trust_re.search(str(source_addr))) else 0
 
         base_record = {
-            'canvas_name': canvas_name,
-            'canvas_address': canvas_addr,
-            'canvas_city': canvas_city,
-            'canvas_state': canvas_state,
-            'canvas_zip': canvas_zip,
-            'canvas_addrseq': canvas_addrseq,
-            'canvas_id': canvas_id,
-            'canvas_ssn': canvas_ssn_digits,
+            'source_name': source_name,
+            'source_address': source_addr,
+            'source_city': source_city,
+            'source_state': source_state,
+            'source_zip': source_zip,
+            'source_addrseq': source_addrseq,
+            'source_id': source_id,
+            'source_ssn': source_ssn_digits,
             'is_trust': is_trust,
             # Google Address Lookup defaults
             'before_lookup_address': None,
@@ -1614,7 +1627,7 @@ def main():
             'before_lookup_state': None,
             'before_lookup_zip': None,
             'address_looked_up': 0,
-            'canvas_lookup_verdict': None,
+            'source_lookup_verdict': None,
             'before_lookup_dec_address': None,
             'before_lookup_dec_city': None,
             'before_lookup_dec_state': None,
@@ -1623,17 +1636,15 @@ def main():
             'dec_lookup_verdict': None,
         }
 
-        if not canvas_ssn:
-            reason = 'INVALID SSN' if canvas_ssn_raw else 'NO SSN'
-            bad = _needs_review_override(canvas_name, canvas_addr,
-                                         canvas_city, canvas_state, canvas_zip)
+        if not source_ssn:
+            reason = 'INVALID SSN' if source_ssn_raw else 'NO SSN'
+            bad = _needs_review_override(source_name, source_addr,
+                                         source_city, source_state, source_zip)
             if bad:
                 no_ssn_rec = 'NEEDS REVIEW'
                 reason = bad
-                stats['needs_review'] += 1
             else:
                 no_ssn_rec = 'NEW BA AND NEW ADDRESS'
-                stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
@@ -1649,19 +1660,17 @@ def main():
             continue
 
         # Look up in DEC by cleaned SSN
-        dec_matches = dec_by_ssn.get(canvas_ssn, [])
+        dec_matches = dec_by_ssn.get(source_ssn, [])
 
         if not dec_matches:
-            bad = _needs_review_override(canvas_name, canvas_addr,
-                                         canvas_city, canvas_state, canvas_zip)
+            bad = _needs_review_override(source_name, source_addr,
+                                         source_city, source_state, source_zip)
             if bad:
                 no_dec_rec = 'NEEDS REVIEW'
                 no_dec_reason = bad
-                stats['needs_review'] += 1
             else:
                 no_dec_rec = 'NEW BA AND NEW ADDRESS'
                 no_dec_reason = 'SSN NOT FOUND IN DEC'
-                stats['new_ba_new_addr'] += 1
             results.append({
                 **base_record,
                 'dec_hdrcode': '', 'dec_name': '', 'dec_address': '',
@@ -1687,15 +1696,15 @@ def main():
         best_boost_source = None
         possible_addr_matches = 0
 
-        # Pre-extract names from Canvas address (once per Canvas record)
-        canvas_addr_names = extract_names_from_address(canvas_addr)
+        # Pre-extract names from Source address (once per Source record)
+        source_addr_names = extract_names_from_address(source_addr)
 
         for dec in dec_matches:
             addr_result = address_compare(
-                canvas_addr, canvas_city, canvas_zip,
+                source_addr, source_city, source_zip,
                 dec['addraddress'], dec['addrcity'], dec['addrzipcode'],
                 collect_detail=True)
-            name_result = name_compare(canvas_name, dec['hdrname'],
+            name_result = name_compare(source_name, dec['hdrname'],
                                        collect_detail=True)
             primary_score = name_result['name_score']
 
@@ -1709,39 +1718,39 @@ def main():
                 dec_addr_names = extract_names_from_address(
                     dec.get('addraddress', ''))
 
-                # 1) Canvas name vs DEC addrcontact
+                # 1) Source name vs DEC addrcontact
                 if dec_contact:
-                    s = name_compare(canvas_name, dec_contact)['name_score']
+                    s = name_compare(source_name, dec_contact)['name_score']
                     if s > effective_score:
                         supp_candidates.append(('DEC_CONTACT', s))
 
-                # 2) Canvas addr name vs DEC hdrname
-                for aname in canvas_addr_names:
+                # 2) Source addr name vs DEC hdrname
+                for aname in source_addr_names:
                     s = name_compare(aname, dec['hdrname'])['name_score']
                     if s > effective_score:
-                        supp_candidates.append(('CANVAS_ADDR_NAME', s))
+                        supp_candidates.append(('SOURCE_ADDR_NAME', s))
 
-                # 3) Canvas addr name vs DEC addrcontact
+                # 3) Source addr name vs DEC addrcontact
                 if dec_contact:
-                    for aname in canvas_addr_names:
+                    for aname in source_addr_names:
                         s = name_compare(aname, dec_contact)['name_score']
                         if s > effective_score:
                             supp_candidates.append(
-                                ('CANVAS_ADDR+DEC_CONTACT', s))
+                                ('SOURCE_ADDR+DEC_CONTACT', s))
 
-                # 4) Canvas name vs DEC addr name
+                # 4) Source name vs DEC addr name
                 for dname in dec_addr_names:
-                    s = name_compare(canvas_name, dname)['name_score']
+                    s = name_compare(source_name, dname)['name_score']
                     if s > effective_score:
                         supp_candidates.append(('DEC_ADDR_NAME', s))
 
-                # 5) Canvas addr name vs DEC addr name
-                for aname in canvas_addr_names:
+                # 5) Source addr name vs DEC addr name
+                for aname in source_addr_names:
                     for dname in dec_addr_names:
                         s = name_compare(aname, dname)['name_score']
                         if s > effective_score:
                             supp_candidates.append(
-                                ('CANVAS_ADDR+DEC_ADDR', s))
+                                ('SOURCE_ADDR+DEC_ADDR', s))
 
                 # Pick best supplementary score, cap at 0.95
                 for src, score in supp_candidates:
@@ -1762,31 +1771,29 @@ def main():
                 best_name_score = effective_score
                 best_boost_source = boost_source
 
-        # Classify using configurable bucket ranges
-        name_pct = round5(best_name_score * 100)
-        addr_pct = round5(best_addr_score * 100)
-        rec = _classify(name_pct, addr_pct, BUCKET_RULES)
+        # Data quality gate — force NEEDS REVIEW for bad/missing data
         bad = _needs_review_override(
-            canvas_name, canvas_addr, canvas_city, canvas_state, canvas_zip,
+            source_name, source_addr, source_city, source_state, source_zip,
             dec_name=best_dec['hdrname'], dec_addr=best_dec['addraddress'],
             dec_city=best_dec['addrcity'], dec_state=best_dec['addrstate'],
             dec_zip=best_dec['addrzipcode'])
         if bad or best_addr_result.get('reason') == 'UNKNOWN_ADDRESS':
             rec = 'NEEDS REVIEW'
-        stats[_REC_TO_STAT[rec]] += 1
+        else:
+            rec = None  # deferred — classify after API overrides
 
         # Composite name+address score (holistic identity similarity)
-        canvas_combo = (normalize_name(canvas_name, trust=is_trust) + ' '
-                        + normalize_address(canvas_addr, trust=is_trust) + ' '
-                        + normalize_city(canvas_city) + ' '
-                        + safe_str(canvas_state).upper().strip() + ' '
-                        + normalize_zip(canvas_zip))
+        source_combo = (normalize_name(source_name, trust=is_trust) + ' '
+                        + normalize_address(source_addr, trust=is_trust) + ' '
+                        + normalize_city(source_city) + ' '
+                        + safe_str(source_state).upper().strip() + ' '
+                        + normalize_zip(source_zip))
         dec_combo = (normalize_name(best_dec['hdrname']) + ' '
                      + normalize_address(best_dec['addraddress']) + ' '
                      + normalize_city(best_dec['addrcity']) + ' '
                      + safe_str(best_dec['addrstate']).upper().strip() + ' '
                      + normalize_zip(best_dec['addrzipcode']))
-        nameaddrscore = round5(jaro_winkler(canvas_combo, dec_combo) * 100)
+        nameaddrscore = round5(jaro_winkler(source_combo, dec_combo) * 100)
 
         # Build detail strings from best match
         _name_norm_detail = best_name_result.get('name_norm_detail', '') if best_name_result else ''
@@ -1839,7 +1846,7 @@ def main():
     # 4b. API override for ambiguous name scores
     if USE_API_OVERRIDE:
         ambiguous = [
-            (i, r['canvas_name'], r['dec_name'])
+            (i, r['source_name'], r['dec_name'])
             for i, r in enumerate(results)
             if r['ssn_match'] == 100.0
             and API_SCORE_MIN <= r['name_score'] <= API_SCORE_MAX
@@ -1849,20 +1856,9 @@ def main():
             print(f'\nAPI override: {len(ambiguous)} ambiguous name pairs '
                   f'({batches} batch{"es" if batches != 1 else ""})...')
             overrides = api_override_name_scores(ambiguous)
-            reclassified = 0
             for idx, new_score in overrides.items():
-                r = results[idx]
-                old_rec = r['recommendation']
-                r['name_score'] = float(new_score)
-                # Re-classify with new name score
-                r['recommendation'] = _classify(
-                    float(new_score), float(r['address_score']), BUCKET_RULES)
-                if r['recommendation'] != old_rec:
-                    reclassified += 1
-                    stats[_REC_TO_STAT[old_rec]] -= 1
-                    stats[_REC_TO_STAT[r['recommendation']]] += 1
-            print(f'  Overrode {len(overrides)} scores, '
-                  f'{reclassified} reclassified')
+                results[idx]['name_score'] = float(new_score)
+            print(f'  Overrode {len(overrides)} scores')
 
     # 4c. Google Address Validation API override for ambiguous address scores
     if USE_GOOGLE_ADDRESS_API and GOOGLE_API_KEY:
@@ -1870,16 +1866,16 @@ def main():
             """Score=0 but all address numbers and zip match → worth a Google lookup."""
             if r['address_score'] != 0:
                 return False
-            z1, z2 = normalize_zip(r['canvas_zip']), normalize_zip(r['dec_zip'])
+            z1, z2 = normalize_zip(r['source_zip']), normalize_zip(r['dec_zip'])
             if not z1 or not z2 or z1 != z2:
                 return False
-            n1 = extract_addr_numbers(normalize_address(r['canvas_address']))
+            n1 = extract_addr_numbers(normalize_address(r['source_address']))
             n2 = extract_addr_numbers(normalize_address(r['dec_address']))
             return bool(n1) and n1 == n2
 
         ambiguous_addr = [
-            (i, r['canvas_address'], r['canvas_city'], r['canvas_state'],
-             r['canvas_zip'], r['canvas_id'], r['canvas_addrseq'],
+            (i, r['source_address'], r['source_city'], r['source_state'],
+             r['source_zip'], r['source_id'], r['source_addrseq'],
              r['dec_address'], r['dec_city'], r['dec_state'],
              r['dec_zip'], r['dec_hdrcode'], r.get('dec_addrsubcode', ''),
              r['address_score'])
@@ -1891,20 +1887,19 @@ def main():
         if ambiguous_addr:
             print(f'\nGoogle Address API: {len(ambiguous_addr)} ambiguous address pairs...')
             addr_overrides = google_override_address_scores(ambiguous_addr)
-            reclassified = 0
             score_overrides = 0
             for idx, ov in addr_overrides.items():
                 r = results[idx]
 
-                # Save originals before overwriting (Canvas)
-                r['before_lookup_address'] = r['canvas_address']
-                r['before_lookup_city'] = r['canvas_city']
-                r['before_lookup_state'] = r['canvas_state']
-                r['before_lookup_zip'] = r['canvas_zip']
+                # Save originals before overwriting (Source)
+                r['before_lookup_address'] = r['source_address']
+                r['before_lookup_city'] = r['source_city']
+                r['before_lookup_state'] = r['source_state']
+                r['before_lookup_zip'] = r['source_zip']
                 r['address_looked_up'] = 1
-                r['canvas_lookup_verdict'] = (
-                    json.dumps(ov['canvas_verdict'])
-                    if ov['canvas_verdict'] else None)
+                r['source_lookup_verdict'] = (
+                    json.dumps(ov['source_verdict'])
+                    if ov['source_verdict'] else None)
 
                 # Save originals before overwriting (DEC)
                 r['before_lookup_dec_address'] = r['dec_address']
@@ -1916,12 +1911,12 @@ def main():
                     json.dumps(ov['dec_verdict'])
                     if ov['dec_verdict'] else None)
 
-                # Replace Canvas address with standardized
-                if ov['canvas_std']:
-                    r['canvas_address'] = ov['canvas_std'][0]
-                    r['canvas_city'] = ov['canvas_std'][1]
-                    r['canvas_state'] = ov['canvas_std'][2]
-                    r['canvas_zip'] = ov['canvas_std'][3]
+                # Replace Source address with standardized
+                if ov['source_std']:
+                    r['source_address'] = ov['source_std'][0]
+                    r['source_city'] = ov['source_std'][1]
+                    r['source_state'] = ov['source_std'][2]
+                    r['source_zip'] = ov['source_std'][3]
 
                 # Replace DEC address with standardized
                 if ov['dec_std']:
@@ -1930,27 +1925,26 @@ def main():
                     r['dec_state'] = ov['dec_std'][2]
                     r['dec_zip'] = ov['dec_std'][3]
 
-                # Update score and re-classify if meaningfully changed
+                # Update score if meaningfully changed
                 if ov['score_changed']:
                     score_overrides += 1
-                    old_rec = r['recommendation']
-                    new_addr_score = float(ov['new_score'])
-                    r['address_score'] = new_addr_score
-                    # Re-classify with new address score
-                    r['recommendation'] = _classify(
-                        float(r['name_score']), new_addr_score, BUCKET_RULES)
-                    if r['recommendation'] != old_rec:
-                        reclassified += 1
-                        stats[_REC_TO_STAT[old_rec]] -= 1
-                        stats[_REC_TO_STAT[r['recommendation']]] += 1
+                    r['address_score'] = float(ov['new_score'])
 
             print(f'  Validated {len(addr_overrides)} pairs, '
-                  f'{score_overrides} scores overridden, '
-                  f'{reclassified} reclassified')
+                  f'{score_overrides} scores overridden')
     elif USE_GOOGLE_ADDRESS_API and not GOOGLE_API_KEY:
         print('\nGoogle Address API enabled but GOOGLE_API_KEY not set — skipping.')
 
-    # 5. Insert results into database
+    # 5. Final classification — single pass with best available scores
+    stats = {b['stat']: 0 for b in BUCKET_RULES}
+    stats['needs_review'] = 0
+    for r in results:
+        if r['recommendation'] is None:
+            r['recommendation'] = _classify(
+                float(r['name_score']), float(r['address_score']), BUCKET_RULES)
+        stats[_REC_TO_STAT[r['recommendation']]] += 1
+
+    # 6. Insert results into database
     print(f'\nWriting {len(results):,} results to import_merge_matches table...')
     results_df = pd.DataFrame(results)
 
@@ -1960,12 +1954,12 @@ def main():
         'name_normal_detail', 'address_normal_detail',
         'name_match_detail', 'addr_match_detail',
         'nameaddrscore', 'recommendation',
-        'canvas_name', 'canvas_address', 'canvas_city', 'canvas_state',
-        'canvas_zip', 'canvas_addrseq', 'canvas_id', 'canvas_ssn',
-        # Google lookup - Canvas
+        'source_name', 'source_address', 'source_city', 'source_state',
+        'source_zip', 'source_addrseq', 'source_id', 'source_ssn',
+        # Google lookup - Source
         'before_lookup_address', 'before_lookup_city',
         'before_lookup_state', 'before_lookup_zip',
-        'address_looked_up', 'canvas_lookup_verdict',
+        'address_looked_up', 'source_lookup_verdict',
         # DEC
         'dec_hdrcode', 'dec_name', 'dec_address', 'dec_city',
         'dec_state', 'dec_zip', 'dec_contact', 'dec_addrsubcode',
@@ -1980,7 +1974,7 @@ def main():
     results_df = results_df[col_order]
     results_df = results_df.sort_values('recommendation').reset_index(drop=True)
 
-    # 5b. Write results to Snowflake
+    # 7. Write results to Snowflake
     if sf_conn:
         print('\nWriting results to Snowflake...')
         nrows = _write_results_to_snowflake(results_df, sf_conn, run_id)
@@ -1990,7 +1984,7 @@ def main():
     print(f'\n{"=" * 80}')
     print('MATCHING RESULTS SUMMARY')
     print('=' * 80)
-    print(f'Total Canvas records:              {total:,}')
+    print(f'Total Source records:              {total:,}')
     print(f'')
     print(f'NEW BA AND NEW ADDRESS:            {stats["new_ba_new_addr"]:,}')
     print(f'EXISTING BA ADD NEW ADDRESS:       {stats["existing_ba_new_addr"]:,}')
@@ -2009,7 +2003,7 @@ def main():
               f' / addr {b["addr_min"]}-{b["addr_max"]}')
     print('=' * 80)
 
-    # 7. Export to Excel with color-coded headers
+    # 8. Export to Excel with color-coded headers
     excel_path = 'output/import_merge_matches.xlsx'
     os.makedirs('output', exist_ok=True)
     print(f'\nExporting to {excel_path}...')
@@ -2020,8 +2014,8 @@ def main():
             lambda x: re.sub(r'[\x00-\x1f\x7f-\x9f]', '', str(x)) if pd.notna(x) else x)
 
     # Mask SSNs in Excel output (show last 4 only)
-    if 'canvas_ssn' in export_df.columns:
-        export_df['canvas_ssn'] = export_df['canvas_ssn'].apply(mask_ssn)
+    if 'source_ssn' in export_df.columns:
+        export_df['source_ssn'] = export_df['source_ssn'].apply(mask_ssn)
 
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         export_df.to_excel(writer, index=False, sheet_name='Matches')
@@ -2043,7 +2037,7 @@ def main():
             r'TESTAMENTARY|ESTATE OF|DECEDENT)\b', re.IGNORECASE)
         trust_rows = set()
         for i, row_data in export_df.iterrows():
-            name_text = f"{row_data.get('canvas_name', '')} {row_data.get('dec_name', '')}"
+            name_text = f"{row_data.get('source_name', '')} {row_data.get('dec_name', '')}"
             if trust_words.search(name_text):
                 trust_rows.add(i + 2)  # +2: 1-indexed header + 1-indexed data
 
@@ -2052,7 +2046,7 @@ def main():
             cell = ws.cell(row=1, column=col_idx)
             cell.font = header_font
             cell.alignment = Alignment(horizontal='center')
-            if col_name.startswith('canvas_'):
+            if col_name.startswith('source_'):
                 fill = blue_fill
             elif col_name.startswith('dec_'):
                 fill = tan_fill
@@ -2077,7 +2071,7 @@ def main():
         # Pre-compute trust flag on df for stats
         df['_is_trust'] = df.apply(
             lambda r: bool(trust_words.search(
-                f"{r.get('canvas_name', '')} {r.get('dec_name', '')}")),
+                f"{r.get('source_name', '')} {r.get('dec_name', '')}")),
             axis=1)
 
         ssn_matched = df[df['ssn_match'] == 100]
@@ -2093,9 +2087,9 @@ def main():
             stats_rows.append({'Section': '', 'Metric': '', 'Value': ''})
 
         # --- Overall ---
-        add('Total Canvas Records', len(df), 'OVERALL')
-        add('Unique Canvas SSNs (non-empty)',
-            df[df['canvas_ssn'].str.len() > 0]['canvas_ssn'].nunique())
+        add('Total Source Records', len(df), 'OVERALL')
+        add('Unique Source SSNs (non-empty)',
+            df[df['source_ssn'].str.len() > 0]['source_ssn'].nunique())
         add('Records with SSN Match (Existing BA)', len(ssn_matched))
         add('Records with No Match (New BA)', len(no_match))
         add_blank()
@@ -2126,9 +2120,9 @@ def main():
         boosted = ssn_matched[ssn_matched['name_boost_source'].notna()]
         add('Records with Name Score Boosted', len(boosted),
             'NAME BOOST (from address/contact fields)')
-        for src in ['DEC_CONTACT', 'CANVAS_ADDR_NAME',
-                     'CANVAS_ADDR+DEC_CONTACT', 'DEC_ADDR_NAME',
-                     'CANVAS_ADDR+DEC_ADDR']:
+        for src in ['DEC_CONTACT', 'SOURCE_ADDR_NAME',
+                     'SOURCE_ADDR+DEC_CONTACT', 'DEC_ADDR_NAME',
+                     'SOURCE_ADDR+DEC_ADDR']:
             cnt = len(boosted[boosted['name_boost_source'] == src])
             if cnt > 0:
                 add(f'  Boost from {src}', cnt)
@@ -2171,8 +2165,8 @@ def main():
 
         # --- Top States ---
         add('', '', 'TOP 10 STATES')
-        top_states = (df[df['canvas_state'] != '']
-                      .groupby('canvas_state').size()
+        top_states = (df[df['source_state'] != '']
+                      .groupby('source_state').size()
                       .sort_values(ascending=False).head(10))
         for state, cnt in top_states.items():
             add(state, cnt)

@@ -1,176 +1,234 @@
 <mxfile host="app.diagrams.net" agent="Claude" version="24.0.0">
   <diagram name="BA Dedup Pipeline" id="ba-dedup-pipeline">
-    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+    <mxGraphModel dx="1600" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1800" pageHeight="1200" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
 
         <!-- Title -->
-        <mxCell id="title" value="BA Dedup2 Pipeline" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=24;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
-          <mxGeometry x="600" y="20" width="280" height="40" as="geometry" />
+        <mxCell id="title" value="BA Dedup2 Pipeline — canvas_to_dec_match.py" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontSize=22;fontStyle=1;fontColor=#333333;" vertex="1" parent="1">
+          <mxGeometry x="480" y="15" width="500" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ===== INPUT FILES SECTION ===== -->
-        <mxCell id="input-group" value="Input Files" style="swimlane;startSize=25;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=14;fontColor=#333333;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="80" width="300" height="200" as="geometry" />
+        <!-- ===== SNOWFLAKE DATA SOURCES (left column) ===== -->
+        <mxCell id="sf-group" value="Snowflake (DGO_MA.BA_PROCESS)" style="swimlane;startSize=28;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=13;fontColor=#333333;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="30" y="70" width="280" height="350" as="geometry" />
         </mxCell>
 
-        <mxCell id="dec-csv" value="&lt;b&gt;DEC_BA_MASTER.CSV&lt;/b&gt;&lt;br&gt;387,610 records&lt;br&gt;&lt;font color=&quot;#888888&quot;&gt;hdrcode, ssn, hdrname,&lt;br&gt;address, city, state, zip&lt;/font&gt;" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=0.27;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="input-group">
-          <mxGeometry x="20" y="35" width="260" height="70" as="geometry" />
+        <mxCell id="sf-config" value="&lt;b&gt;BA_CONFIG&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;36 config values&lt;br&gt;Bucket ranges, API settings, toggles&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="sf-group">
+          <mxGeometry x="15" y="38" width="250" height="55" as="geometry" />
         </mxCell>
 
-        <mxCell id="canvas-xlsx" value="&lt;b&gt;CANVAS_BA_MASTER_.xlsx&lt;/b&gt;&lt;br&gt;31,695 records&lt;br&gt;&lt;font color=&quot;#888888&quot;&gt;name, ssn, address, city,&lt;br&gt;state, zip, phone, email&lt;/font&gt;" style="shape=document;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=0.27;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="input-group">
-          <mxGeometry x="20" y="118" width="260" height="70" as="geometry" />
+        <mxCell id="sf-lookup" value="&lt;b&gt;BA_LOOKUP&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;270 entries: nicknames, suffixes,&lt;br&gt;industry terms, trust keywords, bad SSNs&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="sf-group">
+          <mxGeometry x="15" y="103" width="250" height="55" as="geometry" />
         </mxCell>
 
-        <!-- ===== STEP 1: LOAD DEC MASTER ===== -->
-        <mxCell id="step1-group" value="Step 1: load_dec_master.py" style="swimlane;startSize=25;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="420" y="80" width="260" height="140" as="geometry" />
+        <mxCell id="sf-canvas" value="&lt;b&gt;IMPORT_BA_DATA&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;31,695 Canvas records&lt;br&gt;name, ssn, address, city, state, zip&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="sf-group">
+          <mxGeometry x="15" y="168" width="250" height="55" as="geometry" />
         </mxCell>
 
-        <mxCell id="clean-newlines" value="Clean embedded newlines" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="step1-group">
-          <mxGeometry x="15" y="35" width="230" height="30" as="geometry" />
+        <mxCell id="sf-dec" value="&lt;b&gt;Enertia DEC Views&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;407,952 DEC records → dict keyed by SSN&lt;br&gt;355,969 unique SSNs&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="sf-group">
+          <mxGeometry x="15" y="233" width="250" height="55" as="geometry" />
         </mxCell>
 
-        <mxCell id="clean-ssn-dec" value="Strip SSN to digits only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="step1-group">
-          <mxGeometry x="15" y="72" width="230" height="30" as="geometry" />
+        <mxCell id="sf-output" value="&lt;b&gt;IMPORT_MERGE_MATCHES&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;31,695 result rows (output)&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="sf-group">
+          <mxGeometry x="15" y="298" width="250" height="45" as="geometry" />
         </mxCell>
 
-        <mxCell id="load-sqlite" value="Load into SQLite + index" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="step1-group">
-          <mxGeometry x="15" y="105" width="230" height="30" as="geometry" />
+        <!-- ===== MAIN PIPELINE (center) ===== -->
+
+        <!-- Step 0: Connect + Load Config -->
+        <mxCell id="step0" value="&lt;b&gt;0. Connect &amp; Configure&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Snowflake SSO → load BA_CONFIG (bucket ranges,&lt;br&gt;API settings) + BA_LOOKUP (nicknames, suffixes, etc.)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="80" width="310" height="50" as="geometry" />
         </mxCell>
 
-        <!-- ===== DATABASE ===== -->
-        <mxCell id="db" value="&lt;b&gt;ba_dedup.db&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666666&quot;&gt;SQLite Database&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;" vertex="1" parent="1">
-          <mxGeometry x="470" y="280" width="160" height="80" as="geometry" />
+        <!-- Step 1: Load Data -->
+        <mxCell id="step1" value="&lt;b&gt;1. Load Data&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Canvas from IMPORT_BA_DATA (31.7K)&lt;br&gt;DEC from Enertia views → memory dict by SSN (408K)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="380" y="150" width="310" height="50" as="geometry" />
         </mxCell>
 
-        <mxCell id="dec-table" value="&lt;b&gt;dec_ba_master&lt;/b&gt;&lt;br&gt;387,610 rows" style="shape=table;startSize=0;container=0;collapsible=0;childLayout=tableLayout;fillColor=#fff;strokeColor=#b85450;fontSize=10;whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="400" y="380" width="120" height="40" as="geometry" />
+        <!-- Step 2: Score each Canvas record (no classification yet) -->
+        <mxCell id="step2-group" value="2. Score Each Canvas Record" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="225" width="700" height="250" as="geometry" />
         </mxCell>
 
-        <mxCell id="match-table" value="&lt;b&gt;canvas_dec_matches&lt;/b&gt;&lt;br&gt;31,695 rows" style="shape=table;startSize=0;container=0;collapsible=0;childLayout=tableLayout;fillColor=#fff;strokeColor=#b85450;fontSize=10;whiteSpace=wrap;html=1;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="540" y="380" width="130" height="40" as="geometry" />
+        <!-- SSN validation -->
+        <mxCell id="ssn-clean" value="&lt;b&gt;Clean &amp; Validate SSN&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Strip to digits, reject &amp;lt;4 digits / 000|666 prefix / all-same / BAD_SSNS list&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
+          <mxGeometry x="20" y="35" width="320" height="40" as="geometry" />
         </mxCell>
 
-        <!-- ===== STEP 2: CANVAS TO DEC MATCH ===== -->
-        <mxCell id="step2-group" value="Step 2: canvas_to_dec_match.py" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="760" y="80" width="340" height="360" as="geometry" />
+        <!-- Data quality gate -->
+        <mxCell id="dq-gate" value="&lt;b&gt;Data Quality Gate&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Empty/unknown name, addr, city, state, zip&lt;br&gt;→ force NEEDS REVIEW (both Canvas &amp; DEC)&lt;/font&gt;" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="step2-group">
+          <mxGeometry x="370" y="30" width="310" height="80" as="geometry" />
         </mxCell>
 
-        <mxCell id="read-canvas" value="Read Canvas Excel" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
-          <mxGeometry x="20" y="35" width="300" height="28" as="geometry" />
+        <!-- SSN blocking -->
+        <mxCell id="ssn-block" value="&lt;b&gt;SSN Blocking&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Lookup DEC dict by cleaned SSN&lt;br&gt;No SSN / No match → NEW BA or NEEDS REVIEW&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
+          <mxGeometry x="20" y="88" width="320" height="42" as="geometry" />
         </mxCell>
 
-        <mxCell id="clean-ssn" value="Clean &amp; validate SSN&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Reject: &amp;lt;4 digits, 000/666 prefix, all-same-digit&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
-          <mxGeometry x="20" y="72" width="300" height="38" as="geometry" />
+        <!-- Matching engine -->
+        <mxCell id="match-engine" value="Matching Engine (best of N DEC matches)" style="swimlane;startSize=22;fillColor=#fff;strokeColor=#82b366;fontStyle=1;fontSize=11;rounded=1;" vertex="1" parent="step2-group">
+          <mxGeometry x="20" y="145" width="660" height="95" as="geometry" />
         </mxCell>
 
-        <mxCell id="ssn-block" value="SSN Blocking&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Group DEC records by SSN for O(n) lookup&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
-          <mxGeometry x="20" y="119" width="300" height="38" as="geometry" />
+        <mxCell id="name-cmp" value="&lt;b&gt;Name Compare&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Jaro-Winkler + trust normalization&lt;br&gt;+ industry term strip + nickname&lt;br&gt;+ address-as-name boost&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="match-engine">
+          <mxGeometry x="10" y="27" width="200" height="60" as="geometry" />
         </mxCell>
 
-        <mxCell id="matching" value="Matching Engine" style="swimlane;startSize=20;fillColor=#fff;strokeColor=#82b366;fontStyle=1;fontSize=11;rounded=1;" vertex="1" parent="step2-group">
-          <mxGeometry x="20" y="168" width="300" height="90" as="geometry" />
+        <mxCell id="addr-cmp" value="&lt;b&gt;Address Compare&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;PO Box / Street / Zip scoring&lt;br&gt;Unknown addr → score 0&lt;br&gt;Date/junk stripping&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="match-engine">
+          <mxGeometry x="230" y="27" width="200" height="60" as="geometry" />
         </mxCell>
 
-        <mxCell id="name-cmp" value="Name Compare (Jaro-Winkler)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="matching">
-          <mxGeometry x="10" y="25" width="135" height="28" as="geometry" />
+        <mxCell id="scoring" value="&lt;b&gt;Score&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Round to nearest 5&lt;br&gt;Count possible matches&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="match-engine">
+          <mxGeometry x="450" y="27" width="195" height="60" as="geometry" />
         </mxCell>
 
-        <mxCell id="addr-cmp" value="Address Compare (PO/Street/Zip)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="matching">
-          <mxGeometry x="155" y="25" width="135" height="28" as="geometry" />
+        <!-- ===== API OVERRIDES (score enrichment) ===== -->
+        <mxCell id="api-group" value="3. API Score Enrichment" style="swimlane;startSize=25;fillColor=#f8cecc;strokeColor=#b85450;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="500" width="700" height="105" as="geometry" />
         </mxCell>
 
-        <mxCell id="scoring" value="Score &amp; round to nearest 5 | Count possible matches" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=10;" vertex="1" parent="matching">
-          <mxGeometry x="10" y="58" width="280" height="25" as="geometry" />
+        <mxCell id="claude-api" value="&lt;b&gt;Claude API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Ambiguous name pairs (score 15-70)&lt;br&gt;Batched → update name_score&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="api-group">
+          <mxGeometry x="20" y="35" width="310" height="55" as="geometry" />
         </mxCell>
 
-        <mxCell id="recommend" value="&lt;b&gt;Classify Recommendation&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;EXISTING BA - EXISTING ADDRESS&lt;br&gt;EXISTING BA - LIKELY SAME ADDRESS&lt;br&gt;EXISTING BA - NEW ADDRESS&lt;br&gt;NEW BA - NO DEC MATCH / NO SSN / INVALID SSN&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="step2-group">
-          <mxGeometry x="20" y="270" width="300" height="78" as="geometry" />
+        <mxCell id="google-api" value="&lt;b&gt;Google Address Validation API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Ambiguous addr pairs (score in configured range)&lt;br&gt;Standardize addresses → update address_score&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;" vertex="1" parent="api-group">
+          <mxGeometry x="360" y="35" width="320" height="55" as="geometry" />
         </mxCell>
 
-        <!-- ===== OUTPUT ===== -->
-        <mxCell id="output-group" value="Output: canvas_dec_matches.xlsx" style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="1180" y="80" width="300" height="200" as="geometry" />
+        <!-- ===== STEP 4: CLASSIFY (single pass) ===== -->
+        <mxCell id="classify-group" value="4. Classify (single pass)" style="swimlane;startSize=25;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="630" width="700" height="120" as="geometry" />
         </mxCell>
 
-        <mxCell id="tab1" value="&lt;b&gt;Matches Tab&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#4472C4&quot;&gt;Blue = Canvas&lt;/font&gt; | &lt;font color=&quot;#C65911&quot;&gt;Tan = DEC&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#CC0000&quot;&gt;Red rows = Trust/Estate&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="output-group">
-          <mxGeometry x="15" y="35" width="270" height="48" as="geometry" />
+        <mxCell id="classify" value="&lt;b&gt;_classify()&lt;/b&gt; — Configurable BUCKET_RULES&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Final name_score &amp; addr_score (after API enrichment) checked against&lt;br&gt;per-bucket min/max ranges from BA_CONFIG. No match → NEEDS REVIEW.&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="classify-group">
+          <mxGeometry x="20" y="30" width="350" height="55" as="geometry" />
         </mxCell>
 
-        <mxCell id="tab2" value="&lt;b&gt;Summary Stats Tab&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;Recommendations, Auto-Add, Addresses, Trusts, Scores, States&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="output-group">
-          <mxGeometry x="15" y="92" width="270" height="44" as="geometry" />
+        <!-- Buckets -->
+        <mxCell id="bucket-new" value="NEW BA AND&lt;br&gt;NEW ADDRESS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;" vertex="1" parent="classify-group">
+          <mxGeometry x="390" y="30" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="bucket-add" value="EXISTING BA&lt;br&gt;ADD NEW ADDR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;" vertex="1" parent="classify-group">
+          <mxGeometry x="470" y="30" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="bucket-exist" value="EXISTING BA&lt;br&gt;EXISTING ADDR" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;" vertex="1" parent="classify-group">
+          <mxGeometry x="550" y="30" width="70" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="bucket-review" value="NEEDS&lt;br&gt;REVIEW" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=1;" vertex="1" parent="classify-group">
+          <mxGeometry x="630" y="30" width="55" height="40" as="geometry" />
         </mxCell>
 
-        <mxCell id="tab3" value="&lt;b&gt;Data Completeness Tab&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#888888&quot; style=&quot;font-size:9px&quot;&gt;% filled per column (Green/Yellow/Red)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="output-group">
-          <mxGeometry x="15" y="145" width="270" height="44" as="geometry" />
+        <!-- Classify arrow -->
+        <mxCell id="a-cls-buckets" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=1.5;strokeColor=#82b366;" edge="1" parent="classify-group" source="classify" target="bucket-new">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== OUTPUTS (bottom) ===== -->
+        <mxCell id="step5" value="&lt;b&gt;5. Write Results&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;→ Snowflake IMPORT_MERGE_MATCHES (DROP + recreate)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="360" y="775" width="330" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- Excel output -->
+        <mxCell id="excel-group" value="6. Excel Export" style="swimlane;startSize=22;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="360" y="840" width="700" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tab1" value="&lt;b&gt;Matches&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;&lt;font color=&quot;#4472C4&quot;&gt;Blue = Canvas&lt;/font&gt; | &lt;font color=&quot;#C65911&quot;&gt;Tan = DEC&lt;/font&gt;&lt;br&gt;&lt;font color=&quot;#CC0000&quot;&gt;Red rows = Trust&lt;/font&gt;&lt;br&gt;SSNs masked, detail columns&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="excel-group">
+          <mxGeometry x="15" y="30" width="210" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tab2" value="&lt;b&gt;Summary Stats&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;Bucket counts, trust stats,&lt;br&gt;score distributions, states&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="excel-group">
+          <mxGeometry x="245" y="30" width="200" height="58" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tab3" value="&lt;b&gt;Data Completeness&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px&quot;&gt;% filled per column&lt;br&gt;Green / Yellow / Red&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;" vertex="1" parent="excel-group">
+          <mxGeometry x="465" y="30" width="210" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- Human Review -->
+        <mxCell id="human-review" value="&lt;b&gt;Human Review&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;No auto-merge.&lt;br&gt;Reviewer uses Excel + Snowflake&lt;br&gt;to approve/reject matches.&lt;/font&gt;" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;size=20;position=0.5;position2=1;base=20;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="840" width="220" height="95" as="geometry" />
         </mxCell>
 
         <!-- ===== ARROWS ===== -->
 
-        <!-- DEC CSV → Step 1 -->
-        <mxCell id="arrow1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#9673a6;" edge="1" parent="1" source="dec-csv" target="step1-group">
+        <!-- Snowflake sources → Step 0 -->
+        <mxCell id="a-sf-config" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;strokeWidth=1.5;strokeColor=#9673a6;" edge="1" parent="1" source="sf-config" target="step0">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- Step 1 → Database -->
-        <mxCell id="arrow2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="1" source="step1-group" target="db">
+        <mxCell id="a-sf-lookup" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;strokeWidth=1.5;strokeColor=#9673a6;" edge="1" parent="1" source="sf-lookup" target="step0">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="arrow2-label" value="387K rows" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="arrow2">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint x="25" as="offset" /></mxGeometry>
-        </mxCell>
 
-        <!-- Database → Step 2 (DEC lookup) -->
-        <mxCell id="arrow3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.65;strokeWidth=2;strokeColor=#b85450;dashed=1;" edge="1" parent="1" source="db" target="step2-group">
+        <!-- Step 0 → Step 1 -->
+        <mxCell id="a-step0-1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="step0" target="step1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="arrow3-label" value="DEC lookup&lt;br&gt;by SSN" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="arrow3">
-          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint y="-15" as="offset" /></mxGeometry>
+
+        <!-- Snowflake data → Step 1 -->
+        <mxCell id="a-sf-canvas" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;strokeWidth=1.5;strokeColor=#6c8ebf;" edge="1" parent="1" source="sf-canvas" target="step1">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
 
-        <!-- Canvas XLSX → Step 2 -->
-        <mxCell id="arrow4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.15;strokeWidth=2;strokeColor=#d6b656;" edge="1" parent="1" source="canvas-xlsx" target="step2-group">
+        <mxCell id="a-sf-dec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.7;strokeWidth=1.5;strokeColor=#d6b656;" edge="1" parent="1" source="sf-dec" target="step1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Step 1 → Step 2 -->
+        <mxCell id="a-step1-2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="step1" target="step2-group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Internal step2 arrows -->
+        <mxCell id="a-ssn-block" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=1.5;strokeColor=#82b366;" edge="1" parent="step2-group" source="ssn-clean" target="ssn-block">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="a-block-match" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;strokeWidth=1.5;strokeColor=#82b366;" edge="1" parent="step2-group" source="ssn-block" target="match-engine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Step 2 → API Overrides -->
+        <mxCell id="a-step2-api" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="step2-group" target="api-group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-step2-api-label" value="scores (not yet classified)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="a-step2-api">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint x="70" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- API Overrides → Classify -->
+        <mxCell id="a-api-classify" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="api-group" target="classify-group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a-api-classify-label" value="final scores" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="a-api-classify">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint x="35" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Classify → Write Results -->
+        <mxCell id="a-classify-write" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.25;exitY=1;entryX=0.5;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="classify-group" target="step5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Write Results → Snowflake output -->
+        <mxCell id="a-write-sf" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;strokeWidth=1.5;strokeColor=#b85450;" edge="1" parent="1" source="step5" target="sf-output">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="710" y="233" />
-              <mxPoint x="710" y="134" />
+              <mxPoint x="340" y="796" />
+              <mxPoint x="340" y="391" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="arrow4-label" value="31.7K records" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="arrow4">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint y="-10" as="offset" /></mxGeometry>
-        </mxCell>
 
-        <!-- Step 2 → Output Excel -->
-        <mxCell id="arrow5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.5;strokeWidth=2;strokeColor=#82b366;" edge="1" parent="1" source="step2-group" target="output-group">
+        <!-- Write Results → Excel -->
+        <mxCell id="a-write-excel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;strokeWidth=2;strokeColor=#333333;" edge="1" parent="1" source="step5" target="excel-group">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="arrow5-label" value="Excel export&lt;br&gt;(SSN masked)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="arrow5">
-          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint y="-15" as="offset" /></mxGeometry>
-        </mxCell>
 
-        <!-- Step 2 → Database (write matches) -->
-        <mxCell id="arrow6" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0;exitY=0.85;exitDx=0;exitDy=0;entryX=1;entryY=0.5;strokeWidth=2;strokeColor=#b85450;" edge="1" parent="1" source="step2-group" target="db">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="740" y="386" />
-              <mxPoint x="740" y="320" />
-            </Array>
-          </mxGeometry>
-        </mxCell>
-        <mxCell id="arrow6-label" value="Write results" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=9;fontColor=#888888;" vertex="1" connectable="0" parent="arrow6">
-          <mxGeometry x="-0.3" relative="1" as="geometry"><mxPoint x="15" as="offset" /></mxGeometry>
-        </mxCell>
-
-        <!-- Human Review callout -->
-        <mxCell id="human-review" value="&lt;b&gt;Human Review&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px&quot;&gt;No auto-merge.&lt;br&gt;Reviewer uses Excel&lt;br&gt;to approve/reject matches.&lt;/font&gt;" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;size=20;position=0.5;position2=1;base=20;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;rounded=1;" vertex="1" parent="1">
-          <mxGeometry x="1230" y="320" width="200" height="100" as="geometry" />
-        </mxCell>
-
-        <!-- Arrow from output to human review -->
-        <mxCell id="arrow7" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;strokeWidth=1;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="output-group" target="human-review">
+        <!-- Excel → Human Review -->
+        <mxCell id="a-excel-human" style="edgeStyle=orthogonalEdgeStyle;rounded=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeWidth=1;strokeColor=#666666;dashed=1;" edge="1" parent="1" source="excel-group" target="human-review">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
 

@@ -1,0 +1,170 @@
+<mxfile host="app.diagrams.net" agent="Claude" version="29.6.0">
+  <diagram name="BA Dedup Pipeline (Brief)" id="pipeline-brief">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title -->
+        <mxCell id="title" value="BA Dedup2 — Matching Pipeline" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=28;fontStyle=1;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="400" y="20" width="500" height="45" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle" value="canvas_to_dec_match.py" style="text;html=1;align=center;verticalAlign=middle;fontSize=13;fontColor=#888;" vertex="1" parent="1">
+          <mxGeometry x="500" y="60" width="300" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ===== ROW 1: Data Sources ===== -->
+        <mxCell id="sf" value="&lt;b style=&quot;font-size:15px&quot;&gt;Snowflake&lt;/b&gt;&lt;br&gt;&lt;br&gt;31,695 Canvas Records&lt;br&gt;408K DEC Records&lt;br&gt;Config &amp;amp; Lookups" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;rounded=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="130" width="180" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Snowflake → Score -->
+        <mxCell id="a1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#6c8ebf;" edge="1" parent="1" source="sf" target="score">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== Score ===== -->
+        <mxCell id="score" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="340" y="110" width="280" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="score_title" value="&lt;b style=&quot;font-size:15px&quot;&gt;1. Score&lt;/b&gt;" style="text;html=1;align=center;fontSize=15;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="410" y="118" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="score_ssn" value="SSN blocking key" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="150" width="120" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="score_name" value="Name Compare&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Jaro-Winkler + boost&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="355" y="188" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="score_addr" value="Address Compare&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;PO Box / Street / City&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F5E9;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="488" y="188" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="score_dq" value="Data quality gate" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="488" y="150" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Score → Enrich -->
+        <mxCell id="a2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#E65100;" edge="1" parent="1" source="score" target="enrich">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a2_label" value="raw scores" style="edgeLabel;html=1;align=center;fontSize=10;fontColor=#888;" vertex="1" connectable="0" parent="a2">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ===== API Enrichment ===== -->
+        <mxCell id="enrich" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF3E0;strokeColor=#E65100;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="700" y="120" width="230" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="enrich_title" value="&lt;b style=&quot;font-size:15px&quot;&gt;2. API Enrich&lt;/b&gt;" style="text;html=1;align=center;fontSize=15;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="745" y="128" width="140" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="enrich_claude" value="&lt;b&gt;Claude API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Semantic name eval&lt;br&gt;→ update name_score&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="712" y="160" width="100" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="enrich_google" value="&lt;b&gt;Google API&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Standardize addrs&lt;br&gt;→ update addr_score&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00897B;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="818" y="160" width="100" height="55" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Enrich → Classify -->
+        <mxCell id="a3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#333;" edge="1" parent="1" source="enrich" target="classify">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="a3_label" value="final scores" style="edgeLabel;html=1;align=center;fontSize=10;fontColor=#888;" vertex="1" connectable="0" parent="a3">
+          <mxGeometry x="-0.1" relative="1" as="geometry"><mxPoint y="-12" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ===== Classify ===== -->
+        <mxCell id="classify" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;arcSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="110" width="240" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="classify_title" value="&lt;b style=&quot;font-size:15px&quot;&gt;3. Classify&lt;/b&gt;" style="text;html=1;align=center;fontSize=15;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="1070" y="118" width="120" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" value="&lt;b&gt;NEW BA&lt;br&gt;NEW ADDR&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="150" width="75" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" value="&lt;b&gt;EXISTING BA&lt;br&gt;NEW ADDR&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="150" width="75" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" value="&lt;b&gt;EXISTING BA&lt;br&gt;EXISTING ADDR&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="192" width="75" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" value="&lt;b&gt;NEEDS&lt;br&gt;REVIEW&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="192" width="75" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="classify_note" value="&lt;font style=&quot;font-size:9px;color:#666&quot;&gt;Single pass · Configurable ranges&lt;/font&gt;" style="text;html=1;align=center;fontSize=9;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="233" width="165" height="15" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow: Classify → Output -->
+        <mxCell id="a4" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=3;strokeColor=#333;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="classify" target="output_group">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== OUTPUT ROW ===== -->
+        <mxCell id="output_group" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="340" y="330" width="910" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="output_title" value="&lt;b style=&quot;font-size:15px&quot;&gt;4. Output&lt;/b&gt;" style="text;html=1;align=left;fontSize=15;fontColor=#333;" vertex="1" parent="1">
+          <mxGeometry x="360" y="338" width="120" height="25" as="geometry" />
+        </mxCell>
+
+        <mxCell id="out_sf" value="&lt;b&gt;Snowflake&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;IMPORT_MERGE_MATCHES&lt;br&gt;31,695 rows&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=10;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="370" y="370" width="180" height="65" as="geometry" />
+        </mxCell>
+
+        <mxCell id="out_excel" value="&lt;b&gt;Excel Report&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size:10px;color:#666&quot;&gt;Matches · Summary · Completeness&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="580" y="375" width="210" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Arrow to Human Review -->
+        <mxCell id="a5" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeWidth=2;strokeColor=#666;dashed=1;" edge="1" parent="1" source="out_excel" target="human">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="human" value="&lt;b style=&quot;font-size:14px&quot;&gt;Human Review&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;font style=&quot;font-size:11px;color:#666&quot;&gt;No auto-merge.&lt;br&gt;All matches require&lt;br&gt;human approval.&lt;/font&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#B71C1C;strokeWidth=2;fontSize=12;size=0.15;" vertex="1" parent="1">
+          <mxGeometry x="860" y="352" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- ===== KEY STATS (bottom) ===== -->
+        <mxCell id="stats_bar" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ECEFF1;strokeColor=#B0BEC5;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="80" y="500" width="1170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="stat1" value="&lt;b&gt;SSN Blocking Key&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;Primary match criteria&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="95" y="508" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat_div1" value="" style="line;strokeWidth=1;strokeColor=#B0BEC5;direction=south;" vertex="1" parent="1">
+          <mxGeometry x="260" y="508" width="1" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat2" value="&lt;b&gt;Snowflake Config&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;12 bucket range keys&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="275" y="508" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat_div2" value="" style="line;strokeWidth=1;strokeColor=#B0BEC5;direction=south;" vertex="1" parent="1">
+          <mxGeometry x="440" y="508" width="1" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat3" value="&lt;b&gt;Trust Detection&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;Flagged before scoring&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="455" y="508" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat_div3" value="" style="line;strokeWidth=1;strokeColor=#B0BEC5;direction=south;" vertex="1" parent="1">
+          <mxGeometry x="620" y="508" width="1" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat4" value="&lt;b&gt;Google API Cache&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;0 API calls on re-run&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="635" y="508" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat_div4" value="" style="line;strokeWidth=1;strokeColor=#B0BEC5;direction=south;" vertex="1" parent="1">
+          <mxGeometry x="800" y="508" width="1" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat5" value="&lt;b&gt;No Auto-Merge&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;Human review mandatory&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="815" y="508" width="155" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat_div5" value="" style="line;strokeWidth=1;strokeColor=#B0BEC5;direction=south;" vertex="1" parent="1">
+          <mxGeometry x="985" y="508" width="1" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="stat6" value="&lt;b&gt;Single Script&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666&quot;&gt;canvas_to_dec_match.py&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="508" width="155" height="35" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
