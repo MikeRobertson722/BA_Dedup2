@@ -505,6 +505,9 @@ def normalize_address(addr, trust: bool = False, detail: list | None = None) -> 
     if detail is not None and addr != before.upper().strip():
         detail.append(f"[date_strip] {before.strip()}→{addr}")
 
+    # Remove dash between street number and ordinal street name (e.g. "370-17TH" → "370 17TH")
+    addr = re.sub(r'\b(\d+)-(\d+(?:ST|ND|RD|TH)\b)', r'\1 \2', addr)
+
     # STRICT: Treat as PO Box ONLY if entire line is exactly "BOX <num/wordnum>"
     m = re.fullmatch(
         r"\s*BOX\s*#?\s*(\d+|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN)\s*", addr)
@@ -519,8 +522,8 @@ def normalize_address(addr, trust: bool = False, detail: list | None = None) -> 
     # Explicit PO patterns only
     before = addr
     addr = re.sub(r"\bPOST\s*OFFICE\s*BOX\b", "PO BOX", addr)
-    addr = re.sub(r"\bP\.?\s*O\.?\s*BOX\b", "PO BOX", addr)
-    addr = re.sub(r"\bP\.?\s*O\.?\s*B\b", "PO BOX", addr)
+    addr = re.sub(r"\bP\.?\s*O\.?\s*B\s*O\s*X\b", "PO BOX", addr)
+    addr = re.sub(r"\bP\.?\s*O\.?\s*B\b(?!\s*O)", "PO BOX", addr)
     addr = re.sub(r"\bPOB\b", "PO BOX", addr)
     addr = re.sub(r"\bPOP\s+BOX\b", "PO BOX", addr)
     addr = re.sub(r"\bPO\s+BOX\s*#", "PO BOX ", addr)
@@ -584,8 +587,8 @@ def normalize_address(addr, trust: bool = False, detail: list | None = None) -> 
     # Strip leading non-address text (names, ATTN, C/O, titles, etc.)
     # Only for addresses that don't start with a digit and aren't PO Boxes.
     if not re.match(r'\s*\d', addr) and 'PO BOX' not in addr:
-        _ADDR_START_TOKENS = {'HWY', 'CR', 'RR', 'RT', 'RTE', 'FM', 'SH', 'SR',
-                              'CMR', 'PSC', 'HC', 'STAR',
+        _ADDR_START_TOKENS = {'HWY', 'CR', 'RR', 'RT', 'RTE', 'ROUTE', 'FM', 'SH', 'SR',
+                              'CMR', 'PSC', 'HC', 'HCR', 'STAR',
                               'APT', 'STE', 'UNIT', 'BLDG', 'FL', 'RM'}
         m = re.search(r'\b(\d+)\s+[A-Z]', addr)
         if m:
@@ -614,6 +617,76 @@ def normalize_zip(z: str) -> str:
     if len(digits) >= 4:
         return digits[:5].zfill(5)
     return digits
+
+
+# ===== Label formatting =====
+
+_POBOX_LABEL_RE = re.compile(r'(P\s*\.?\s*O\s*\.?\s*B\s*O\s*X\s+\S+)', re.IGNORECASE)
+
+
+def _format_address_label(raw_addr, norm_addr, width=45):
+    """Format address into label-friendly string with lines wrapped at `width` chars.
+
+    Uses the normalized address as the street portion, and extracts any
+    leading non-address text (names, C/O, ATTN) from the raw address
+    to append at the end.  For PO BOX addresses with no other street number,
+    the PO BOX goes first and remaining text goes after.
+    """
+    import textwrap
+    if not raw_addr and not norm_addr:
+        return ''
+    raw = str(raw_addr).strip().upper() if raw_addr else ''
+    norm = str(norm_addr).strip() if norm_addr else ''
+    # PO BOX with no other street number: pull PO BOX to front
+    pobox_m = _POBOX_LABEL_RE.search(norm)
+    has_street_number = bool(re.match(r'\s*\d', norm)) and not pobox_m
+    if pobox_m and not has_street_number:
+        pobox = pobox_m.group(1).strip()
+        # Use raw address to recover text that normalize_address stripped
+        # (e.g. "DATED JANUARY 26, 2012" gets removed by normalization).
+        raw_pobox_m = _POBOX_LABEL_RE.search(raw)
+        if raw_pobox_m:
+            rest = (raw[:raw_pobox_m.start()] + raw[raw_pobox_m.end():]).strip()
+        else:
+            rest = (norm[:pobox_m.start()] + norm[pobox_m.end():]).strip()
+        rest = ' '.join(rest.split()).strip(',%&')
+        lines = textwrap.wrap(pobox, width)
+        if rest:
+            lines.extend(textwrap.wrap(rest, width))
+        return '\n'.join(l.lstrip() for l in lines)
+    # Non-PO-BOX: normalized street first, stripped leading names at end.
+    # Find where the street number starts in the raw address — everything
+    # before it is the name/prefix that normalize_address stripped.
+    # Only extract prefix if normalize_address actually removed leading text
+    # (i.e. the normalized result starts with a digit, meaning the prefix was stripped).
+    prefix = ''
+    if norm and raw and re.match(r'\s*\d', norm):
+        # Extract the leading street number from norm, then find that
+        # specific number in raw (avoids matching dates like "2010").
+        lead_m = re.match(r'(\d+)', norm)
+        if lead_m:
+            num_m = re.search(r'\b' + re.escape(lead_m.group(1)) + r'\b', raw)
+            if num_m and num_m.start() > 0:
+                candidate = raw[:num_m.start()].strip().rstrip(',%&')
+                # Only use prefix if it's NOT already in the normalized address
+                if candidate and candidate not in norm:
+                    prefix = candidate
+    # Split after STE/APT/UNIT number — anything trailing goes on next line
+    addr_part = norm
+    suite_tail = ''
+    if norm:
+        ste_m = re.search(r'\b(?:STE|APT|UNIT(?:\s+(?:NO\.?|NUM))?|SUITE)\s+#?\s*[^\s#]+\s+(.*)', norm)
+        if ste_m and ste_m.group(1).strip():
+            suite_tail = ste_m.group(1).strip()
+            addr_part = norm[:ste_m.start(1)].strip()
+    lines = []
+    if addr_part:
+        lines.extend(textwrap.wrap(addr_part, width))
+    if suite_tail:
+        lines.extend(textwrap.wrap(suite_tail, width))
+    if prefix:
+        lines.extend(textwrap.wrap(prefix, width))
+    return '\n'.join(l.lstrip() for l in lines)
 
 
 # ===== Parsing helpers =====
@@ -1419,6 +1492,12 @@ def _write_results_to_snowflake(results_df, sf_conn, run_id):
                 cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN {col} VARCHAR")
             except Exception:
                 pass  # column already exists
+    # Ensure SOURCE_ADDRESS_RECOMEND column exists
+    for tbl in ('IMPORT_MERGE_MATCHES', 'IMPORT_MERGE_MATCHES_ARCHIVE'):
+        try:
+            cur.execute(f"ALTER TABLE BA_PROCESS.{tbl} ADD COLUMN SOURCE_ADDRESS_RECOMEND VARCHAR")
+        except Exception:
+            pass  # column already exists
     # Migrate CANVAS_* columns to SOURCE_* (idempotent — fails silently if already renamed)
     for old_col, new_col in (
         ('CANVAS_NAME', 'SOURCE_NAME'), ('CANVAS_ADDRESS', 'SOURCE_ADDRESS'),
@@ -1617,6 +1696,8 @@ def main():
             'source_city': source_city,
             'source_state': source_state,
             'source_zip': source_zip,
+            'source_address_recomend': _format_address_label(
+                source_addr, normalize_address(source_addr)),
             'source_addrseq': source_addrseq,
             'source_id': source_id,
             'source_ssn': source_ssn_digits,
@@ -1955,7 +2036,7 @@ def main():
         'name_match_detail', 'addr_match_detail',
         'nameaddrscore', 'recommendation',
         'source_name', 'source_address', 'source_city', 'source_state',
-        'source_zip', 'source_addrseq', 'source_id', 'source_ssn',
+        'source_zip', 'source_address_recomend', 'source_addrseq', 'source_id', 'source_ssn',
         # Google lookup - Source
         'before_lookup_address', 'before_lookup_city',
         'before_lookup_state', 'before_lookup_zip',
